@@ -152,7 +152,6 @@ public void OnClientCookiesCached(int client)
   g_bCashedCookie[client]=true;
   GetClientCookie(g_hUserCookie, CookieV, sizeof(CookieV));
 
-  for(int i=0; Ex)
 }
 
 public void OnClientDisconnect(int client)
