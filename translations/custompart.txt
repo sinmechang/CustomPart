@@ -1,0 +1,37 @@
+"Phrases"
+{
+  "CP_tag"
+  {
+    "en"   "{yellow}[CP]{default}"
+  }
+
+  "Cookie_not_cashed"
+  {
+    "en"  "귀하의 데이터를 로드하고 있습니다. 잠시 후 다시 시도해주세요."
+  }
+
+  "part_menu_title"
+  {
+    "en"  "커스텀파츠"
+  }
+
+  "part_menu_1"
+  {
+    "en"  "장착한 파츠 보기"
+  }
+
+  "part_menu_2"
+  {
+    "en"  "상점"
+  }
+
+  "part_menu_3"
+  {
+    "en"  "보관함"
+  }
+
+  "part_menu_4"
+  {
+    "en"  ""
+  }
+}
