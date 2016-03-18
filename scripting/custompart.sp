@@ -1,3 +1,18 @@
+/*
+||||****|||**||||**||||****|||*******|||||****|||||***|||||***|||||||||||||||
+||**|||||||**||||**||***|||||||||*||||||**||||**|||**|*|||*|**|||||||||||||||
+||**|||||||**||||**||||****||||||*||||||**||||**|||**||*|*||**|||||||||||||||
+||||****||||******|||***|||||||||*||||||||****|||||**|||*|||**|||||||||||||||
+
+|||||||||||||||||||||******||||||||*|||||****|||||*******||||||||||||||||||||
+|||||||||||||||||||||**||||**|||||*|*||||**||**||||||*|||||||||||||||||||||||
+|||||||||||||||||||||******||||||*****|||****||||||||*|||||||||||||||||||||||
+|||||||||||||||||||||**|||||||||*||||*|||**||**||||||*|||||||||||||||||||||||
+
+Core Plugin By Nopied◎
+*/
+
+
 // TODO 1: PrintTo... 함수들을 로그 관련으로 교체할 것.
 
 #include <sourcemod>
@@ -30,9 +45,10 @@ bool[] g_bPartValid={false, ...};
 bool g_bCashedCookie[MAXPLAYERS+1]={false, ...};
 
 int g_iMaxPartCount;
+int[] g_iPartRank;
 int g_iClientPart[MAXPLAYERS+1][];
 int g_iClientEquipPart[MAXPLAYERS+1][];
-int g_iClientPartCooldown[MAXPLAYERS+1];
+int g_iClientPartCooldown[MAXPLAYERS+1]; // 이것은 서버에 접속을 하고 플레이를 해야만 카운트되도록 설계
 
 public Plugin:myinfo = {
   name=PLUGIN_NAME,
@@ -123,17 +139,28 @@ public Command_PartSystemM(Menu menu, MenuAction action, int param1, int param2)
   }
 }
 
-void Player_Equip(client)
+void Player_Equip(int client)
+{
+  char item[PLATFORM_MAX_PATH];
+  Menu menu = new Menu(Player_EquipM);
+  menu.SetTitle("%t", "part_equip_title");
+
+  Format(item, sizeof(item), "%t", "")
+
+
+}
+
+void Player_EquipM(Menu menu, MenuAction action, int param1, int param2)
 {
 
 }
 
-void Player_Shop(client)
+void Player_Shop(int client)
 {
 
 }
 
-void Player_Backpack(client)
+void Player_Backpack(int client)
 {
 
 }
@@ -146,12 +173,41 @@ public void OnMapStart()
 
 public void OnClientCookiesCached(int client)
 {
-  char item[STRING_MAXLEN];
-  char CookieV[STRING_MAXLEN];
+  char item[STRING_MAXLEN][STRING_MAXLEN];
+  char CookieV[PLATFORM_MAX_PATH];
+  int nbase;
 
   g_bCashedCookie[client]=true;
   GetClientCookie(g_hUserCookie, CookieV, sizeof(CookieV));
 
+  for (int i=0; i<=ExplodeString(CookieV, ",", item, sizeof(item), sizeof(item[])); i++)
+  {
+    StringToInt(item[i], nbase);
+    if(nbase != 0)
+    {
+      if(g_bPartValid[nbase]) g_iClientPart[client][i]=nbase;
+      else // TODO: 동일한 등급의 파츠 뽑기권를 줘야함.
+      {
+        
+      }
+    }
+  }
+  GetClientCookie(g_hUserEquipCookie, CookieV, sizeof(CookieV));
+
+  for (int i=0; i<=ExplodeString(CookieV, ",", item, sizeof(item), sizeof(item[])); i++)
+  {
+    StringToInt(item[i], nbase);
+    if(nbase != 0) // TODO:
+    {
+      if(g_bPartValid[nbase]) g_iClientEquipPart[client][i]=nbase;
+      else // TODO: 이것같은 경우는 슬릇을 비워놓고 동일한 등급의 파츠 뽑기를 해야됨
+      {
+
+      }
+    }
+  }
+  GetClientCookie(g_hUserCooldownCookie, CookieV, sizeof(CookieV));
+  StringToInt(CookieV, g_iClientPartCooldown[client]);
 }
 
 public void OnClientDisconnect(int client)
