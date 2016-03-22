@@ -27,16 +27,27 @@
 
   "part_menu_3"
   {
-    "en"  "보관함"
+    "en"  "파츠 보관함"
   }
 
   "part_menu_4"
+  {
+    "en"  "패키지 보관함"
+  }
+
+  "part_menu_5"
   {
     "en"  "변경된 사항들"
   }
 
   "part_equip_title"
   {
-    "en"  "파츠 장착\n"
+    "en"  "파츠 장착"
+  }
+
+  "part_equip_menu"
+  {
+    "#format" "{1:d}"
+    "en"  "{1}번 슬릇"
   }
 }
