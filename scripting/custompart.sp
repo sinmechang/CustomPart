@@ -36,8 +36,8 @@ Handle g_hCvarChatCommand;
 Handle g_hUserCookie;
 Handle g_hUserEquipCookie;
 Handle g_hUserCooldownCookie;
-// g_hUserCooldownCookie의 경우.
-// "(1번 슬릇);(2번 슬릇);(3번 슬릇)과 같이 형식을 지킬것."
+// g_hUserCookie, g_hUserEquipCookie의 경우.
+// "(파츠 코드):(파츠의 등급);(파츠 코드):(파츠의 등급)"과 같이 형식을 지킬것."
 
 char g_strChatCommand[CHATCOMMAND_MAXLEN][STRING_MAXLEN];
 char g_strConfig[PLATFORM_MAX_PATH];
@@ -56,7 +56,7 @@ int g_iMaxPartCount;
 int[] g_iPartRank;
 int g_iClientPackage[MAXPLAYERS+1][];
 int g_iClientPart[MAXPLAYERS+1][];
-int g_iClientEquipPart[MAXPLAYERS+1][];
+int g_iClientEquipPart[MAXPLAYERS+1][]; // 0 = 장착 안함.
 int g_iClientPartCooldown[MAXPLAYERS+1][]; // 이것은 서버에 접속을 하고 플레이를 해야만 카운트되도록 설계
 
 public Plugin:myinfo = {
@@ -182,7 +182,7 @@ void Player_EquipM(Menu menu, MenuAction action, int param1, int param2)
       {
         case 0:
         {
-          /* code */
+
         }
       }
     }
@@ -208,42 +208,59 @@ public void OnMapStart()
 {
   Cheak_Parts();
 }
-
+public void OnClientPutInServer()
+{
+    // 만약 플레이어가 서버에 처음 접속했을 경우.
+    // 쿠키 데이터 초기화를 해야함.
+}
 
 public void OnClientCookiesCached(int client)
 {
   char item[STRING_MAXLEN][STRING_MAXLEN];
+  char itemcode[STRING_MAXLEN][STRING_MAXLEN];
   char CookieV[PLATFORM_MAX_PATH];
   int nbase;
+  int nbase2;
 
   g_bCashedCookie[client]=true;
   GetClientCookie(g_hUserCookie, CookieV, sizeof(CookieV));
 
-  for (int i=0; i<=ExplodeString(CookieV, ",", item, sizeof(item), sizeof(item[])); i++)
+  for (int i=0; i<=ExplodeString(CookieV, ";", item, sizeof(item), sizeof(item[])); i++) // NEEDDEBUG
   {
-    StringToInt(item[i], nbase);
-    if(nbase != 0)
+    for(int i_1=0; i<=ExplodeString(item[i], ":", itemcode, sizeof(itemcode), sizeof(itemcode[])); i_1++)
+    { // 배열 구조: 0 = 코드, 1 = 등급.  만약 배열이 짝수로 끝날 경우. 그건 등급이 없다는 것이니 에러.
+      if(i_1 == 0) StringToInt(itemcode[i_1], nbase);
+      if(i_1 == 1) StringToInt(itemcode[i_1], nbase2);
+    }
+    if(!nbase || !nbase2)
     {
-      if(g_bPartValid[nbase]) g_iClientPart[client][i]=nbase;
-      else // TODO: 동일한 등급의 파츠 패키지를 줘야함.
-      {
-
-      }
+        if(DEBUG) LogMessage("In g_hUserCookie; nbase: %d, nbase2: %d", nbase, nbase2);
+        // 만약 둘 중 하나가 유효하지 않을 경우.
+    }
+    if(!g_bPartValid[nbase]) // 만약 소지하고 있던 파츠가 유효하지 않을 경우, 동일한 등급의 파츠를 무작위로 하나 줘야함.
+    {
+        Give_Part(client, _, true, nbase2);
     }
   }
   GetClientCookie(g_hUserEquipCookie, CookieV, sizeof(CookieV));
 
-  for (int i=0; i<=ExplodeString(CookieV, ",", item, sizeof(item), sizeof(item[])); i++)
+  for (int i=0; i<=ExplodeString(CookieV, ";", item, sizeof(item), sizeof(item[])); i++)
   {
-    StringToInt(item[i], nbase);
-    if(nbase != 0) // TODO:
-    {
-      if(g_bPartValid[nbase]) g_iClientEquipPart[client][i]=nbase;
-      else // TODO: 이것같은 경우는 슬릇을 비워놓고 동일한 등급의 파츠 패키지를 줘야함
-      {
-
+      for(int i_1=0; i<=ExplodeString(item[i], ":", itemcode, sizeof(itemcode), sizeof(itemcode[])); i_1++)
+      { // 배열 구조: 0 = 코드, 1 = 등급.  만약 배열이 짝수로 끝날 경우. 그건 등급이 없다는 것이니 에러.
+        if(i_1 == 0) StringToInt(itemcode[i_1], nbase);
+        if(i_1 == 1) StringToInt(itemcode[i_1], nbase2);
       }
-    }
+      if(!nbase || !nbase2)
+      {
+          if(DEBUG) LogMessage("In g_hUserEquipCookie; nbase: %d, nbase2: %d", nbase, nbase2);
+          // 만약 둘 중 하나가 유효하지 않을 경우.
+      }
+      if(!g_bPartValid[nbase]) // 만약 소지하고 있던 파츠가 유효하지 않을 경우, 동일한 등급의 파츠를 무작위로 하나 줘야함.
+      {
+          Give_Part(client, _, true, nbase2);
+      }
+      // 그리고 해당 슬릇의 파츠를 제거.
   }
   GetClientCookie(g_hUserCooldownCookie, CookieV, sizeof(CookieV));
   StringToInt(CookieV, g_iClientPartCooldown[client]);
@@ -252,13 +269,74 @@ public void OnClientCookiesCached(int client)
 public void OnClientDisconnect(int client)
 {
   g_bCashedCookie[client]=false;
+  // TODO:  그리고 쿠키 데이터 저장.
 }
 
-void Cheak_Parts() // 본 함수는 반드시 g_strConfig이 등록되고 나서 사용할 것.
+// 문법적인 실험이 포함되어 있음. 에러 시 수정.
+/*
+Give_Part....
+* @param client : client's index
+* @param partcode : 줄 파츠의 코드.
+* 만약 IsReasonNotValid가 true면 값을 부여해도 절대로 그것을 주지 않음.
+*
+* @param IsReasonNotValid : 코어 플러그인의 파츠 검증 로직에 의해 같은 등급의 파츠를 줘야할 경우 true를 부여해야함.
+* 그 외의 경우라면 반드시 false를 기입할 것.
+* @param rank : IsReasonNotValid가 true일 경우에만 값을 기입할 것. 그 외의 경우에는 기입해도 쓸모 없음.
+*/
+void Give_Part(int client, int partcode, bool IsReasonNotValid, int rank)
+{
+    char CookieV[256];
+
+    int givethis;
+
+    if(IsReasonNotValid)
+    {
+        int[] ranksize;
+        int count=0;
+
+        for (int i=1; i<=g_iMaxPartCount; i++)
+        {
+            if(g_bPartValid[i] && g_iPartRank[i] == rank)
+            {
+                ranksize[count] = i;
+                count++;
+            }
+        }
+        givethis = ranksize[GetRandomInt(0, count)];
+    }
+    else
+    {
+        if(!g_bPartValid[partcode])
+        {
+            if(DEBUG)
+            {
+              LogMessage("In Give_Part; partcode: %d is not valid!", partcode);
+            }
+            return;
+        }
+        givethis = partcode;
+    }
+
+    GetClientCookie(client, g_hUserCookie, CookieV, sizeof(CookieV));
+    Format(CookieV, sizeof(CookieV), "%s;%d:%d", CookieV, givethis, g_iPartRank[givethis]);
+    SetClientCookie(client, g_hUserCookie, CookieV);
+}
+
+void RemovePartSlot(int client, int slot)
+{
+    char CookieV[256];
+    GetClientCookie(client, g_hUserEquipCookie, CookieV, sizeof(CookieV));
+
+
+}
+
+ // 본 함수는 반드시 g_strConfig이 등록되고 나서 사용할 것.
+ // NEEDDEBUG
+void Cheak_Parts()
 {
   if(!Cheak_ConfigFile()) return;
   g_bPartValid[]={false, ...};
-
+  g_iPartRank[]={0, ...};
 
   KeyValues kv = new KeyValues("custompart");
 
