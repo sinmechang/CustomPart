@@ -282,6 +282,7 @@ Give_Part....
 * @param IsReasonNotValid : 코어 플러그인의 파츠 검증 로직에 의해 같은 등급의 파츠를 줘야할 경우 true를 부여해야함.
 * 그 외의 경우라면 반드시 false를 기입할 것.
 * @param rank : IsReasonNotValid가 true일 경우에만 값을 기입할 것. 그 외의 경우에는 기입해도 쓸모 없음.
+* @noreturn
 */
 void Give_Part(int client, int partcode, bool IsReasonNotValid, int rank)
 {
