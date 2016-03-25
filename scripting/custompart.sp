@@ -12,6 +12,7 @@
 Core Plugin By Nopied◎
 */
 
+// 이슈 1: 현 파츠 쿠키데이터 구조상 '반드시' 동적 배열을 선언하게 해야함.
 
 // TODO 1: PrintTo... 함수들을 로그 관련으로 교체할 것.
 
@@ -220,7 +221,6 @@ public void OnClientCookiesCached(int client)
   char itemcode[STRING_MAXLEN][STRING_MAXLEN];
   char CookieV[PLATFORM_MAX_PATH];
   int nbase;
-  int nbase2;
 
   g_bCashedCookie[client]=true;
   GetClientCookie(g_hUserCookie, CookieV, sizeof(CookieV));
@@ -229,17 +229,14 @@ public void OnClientCookiesCached(int client)
   {
     for(int i_1=0; i<=ExplodeString(item[i], ":", itemcode, sizeof(itemcode), sizeof(itemcode[])); i_1++)
     { // 배열 구조: 0 = 코드, 1 = 등급.  만약 배열이 짝수로 끝날 경우. 그건 등급이 없다는 것이니 에러.
-      if(i_1 == 0) StringToInt(itemcode[i_1], nbase);
-      if(i_1 == 1) StringToInt(itemcode[i_1], nbase2);
+      if(i_1 == 0) StringToInt(itemcode[i_1], g_iClientPart[i]);
+      if(i_1 == 1) StringToInt(itemcode[i_1], nbase);
     }
-    if(!nbase || !nbase2)
+    if(!g_bPartValid[nbase])
     {
         if(DEBUG) LogMessage("In g_hUserCookie; nbase: %d, nbase2: %d", nbase, nbase2);
         // 만약 둘 중 하나가 유효하지 않을 경우.
-    }
-    if(!g_bPartValid[nbase]) // 만약 소지하고 있던 파츠가 유효하지 않을 경우, 동일한 등급의 파츠를 무작위로 하나 줘야함.
-    {
-        Give_Part(client, _, true, nbase2);
+        SetClientPart(client, _, true, nbase); // 만약 소지하고 있던 파츠가 유효하지 않을 경우, 동일한 등급의 파츠를 무작위로 하나 줘야함.
     }
   }
   GetClientCookie(g_hUserEquipCookie, CookieV, sizeof(CookieV));
@@ -248,19 +245,16 @@ public void OnClientCookiesCached(int client)
   {
       for(int i_1=0; i<=ExplodeString(item[i], ":", itemcode, sizeof(itemcode), sizeof(itemcode[])); i_1++)
       { // 배열 구조: 0 = 코드, 1 = 등급.  만약 배열이 짝수로 끝날 경우. 그건 등급이 없다는 것이니 에러.
-        if(i_1 == 0) StringToInt(itemcode[i_1], nbase);
-        if(i_1 == 1) StringToInt(itemcode[i_1], nbase2);
-      }
-      if(!nbase || !nbase2)
-      {
-          if(DEBUG) LogMessage("In g_hUserEquipCookie; nbase: %d, nbase2: %d", nbase, nbase2);
-          // 만약 둘 중 하나가 유효하지 않을 경우.
+        if(i_1 == 0) StringToInt(itemcode[i_1], g_iClientEquipPart[i]);
+        if(i_1 == 1) StringToInt(itemcode[i_1], nbase);
       }
       if(!g_bPartValid[nbase]) // 만약 소지하고 있던 파츠가 유효하지 않을 경우, 동일한 등급의 파츠를 무작위로 하나 줘야함.
       {
-          Give_Part(client, _, true, nbase2);
+          if(DEBUG) LogMessage("In g_hUserEquipCookie; nbase: %d, nbase2: %d", nbase, nbase2);
+          // 만약 둘 중 하나가 유효하지 않을 경우.
+          SetClientPart(client, _, true, nbase2);
       }
-      // 그리고 해당 슬릇의 파츠를 제거.
+      // 그리고 해당 슬릇의 파츠를 제거. 0으로 다시 설정
   }
   GetClientCookie(g_hUserCooldownCookie, CookieV, sizeof(CookieV));
   StringToInt(CookieV, g_iClientPartCooldown[client]);
@@ -284,7 +278,7 @@ Give_Part....
 * @param rank : IsReasonNotValid가 true일 경우에만 값을 기입할 것. 그 외의 경우에는 기입해도 쓸모 없음.
 * @noreturn
 */
-void Give_Part(int client, int partcode, bool IsReasonNotValid, int rank)
+void SetClientPart(int client, int partcode, bool IsReasonNotValid, int rank)
 {
     char CookieV[256];
 
@@ -311,7 +305,7 @@ void Give_Part(int client, int partcode, bool IsReasonNotValid, int rank)
         {
             if(DEBUG)
             {
-              LogMessage("In Give_Part; partcode: %d is not valid!", partcode);
+              LogMessage("In SetClientPart; partcode: %d is not valid!", partcode);
             }
             return;
         }
@@ -323,6 +317,64 @@ void Give_Part(int client, int partcode, bool IsReasonNotValid, int rank)
     SetClientCookie(client, g_hUserCookie, CookieV);
 }
 
+void SetClientPartSlot(int client)
+{
+
+}
+
+/*
+* GetClientPart
+*
+* @param client : Client's index
+* @param slot : 1 이상의 값을 입력할 경우, 그 슬릇의 파츠 코드를 찾음.
+* @param searchcode : 1 이상의 값을 입력할 경우, 해당 파츠가..?
+*
+* @return
+* - 만약 slot 값을 기입하지 않았을 경우, 모든 파츠...?
+* - 만약 slot 값을 기입할 경우, 그 슬릇의 파츠 코드.
+*
+*/
+stock int GetClientPart(int client, int slot=0, int searchcode=0)
+{
+    char CookieV[256]; // TODO: 추후에 반드시 동적 배열로 선언할 것.
+    char item[256][256]; // TODO: 추후에 반드시 동적 배열로 선언할 것.
+
+    slot > 0 ? GetClientCookie(g_hUserEquipCookie, CookieV, sizeof(CookieV))
+        : GetClientCookie(g_hUserCookie, CookieV, sizeof(CookieV));
+
+
+
+}
+/*
+* @return
+*  slot이 0이나 g_iAbleSlot보다 큰 경우 경우 -1 리턴.
+*  그 외에는 파츠 코드
+*/
+stock int GetClientPartSlot(int client, int slot=0)
+{
+    if(slot == 0 || slot > g_iAbleSlot)
+    {
+        if(DEBUG)
+        {
+          LogMessage("In GetClientPartSlot; slot is not valid");
+        }
+        return -1;
+    }
+    char CookieV[256]; // TODO: 동적 배열
+    char item[256][256]; //  TODO: 동적 배열
+    int nbase;
+
+    for (int i=0; i<=ExplodeString(CookieV, ";", item, sizeof(item), sizeof(item[])); i++)
+    {
+        if(i != slot) continue;
+        for(int i_1=0; i<=ExplodeString(item[i], ":", itemcode, sizeof(itemcode), sizeof(itemcode[])); i_1++)
+        {
+            StringToInt(item[i], nbase);
+
+        }
+    }
+}
+
 void RemovePartSlot(int client, int slot)
 {
     char CookieV[256];
@@ -331,80 +383,85 @@ void RemovePartSlot(int client, int slot)
 
 }
 
+stock int GetPartRank(int partcode)
+{
+    return g_bPartValid[partcode] ? g_iPartRank[partcode] : -1;
+}
+
  // 본 함수는 반드시 g_strConfig이 등록되고 나서 사용할 것.
  // NEEDDEBUG
 void Cheak_Parts()
 {
-  if(!Cheak_ConfigFile()) return;
-  g_bPartValid[]={false, ...};
-  g_iPartRank[]={0, ...};
+    if(!Cheak_ConfigFile()) return;
+    g_bPartValid[]={false, ...};
+    g_iPartRank[]={0, ...};
 
-  KeyValues kv = new KeyValues("custompart");
+    KeyValues kv = new KeyValues("custompart");
 
-  if(kv.ImportFromFile(g_strConfig))
-  {
-    char keyitem[PLATFORM_MAX_PATH];
-    int rank_min = kv.GetNum("rank_min", 1);
-    int rank_max = kv.GetNum("rank_max", 4);
-
-    if(rank_min < 1)
+    if(kv.ImportFromFile(g_strConfig))
     {
-      rank_min=1;
-      LogMessage("KeyValues의 \"rank_min\"은 반드시 1 이상으로 설정하셔야 됩니다.");
-    }
-    for (int i=rank_min; rank_min<=rank_max; i++)
-    {
-      Format(keyitem, sizeof(keyitem), "rankname_%d", i);
+        char keyitem[PLATFORM_MAX_PATH];
+        int rank_min = kv.GetNum("rank_min", 1);
+        int rank_max = kv.GetNum("rank_max", 4);
 
-      kv.GetString(keyitem, g_strPartRankName[i], sizeof(g_strPartRankName[]), "");
-    }
-
-    kv.Rewind();
-    g_iMaxPartCount=kv.GetNum("max_part_count", 200);
-    g_iAbleSlot=kv.GetNum("able_slot", 0);
-
-    if(g_iAbleSlot <= 0)
-    {
-      g_iAbleSlot=1;
-      LogMessage("최소 1개 이상의 슬릇을 활성화 해야합니다.");
-    }
-
-    for (int i=1; i<=g_iMaxPartCount; i++)
-    {
-      Format(keyitem, sizeof(keyitem), "part%d", i);
-      if(kv.JumpToKey(keyitem, false))
-      {
-        kv.GetString("name", g_strPartName[i], sizeof(g_strPartName[]), "");
-        kv.GetString("description", g_strPartDescription[i], sizeof(g_strPartDescription[]), "");
-        kv.GetString("ability_description", g_strPartAbliltyDescription[i], sizeof(g_strPartAbliltyDescription[]), "");
-
-        g_bPartValid[i]=true;
-        g_iPartRank[i]=Kv.GetNum("rank", -1);
-
-        if(rank_min > g_iPartRank[i] || rank_max < g_iPartRank[i])
+        if(rank_min < 1)
         {
-          if(DEBUG) LogMessage("선택한 %d는 rank_min 혹은 rank_max와 유효한 범위 내에 있지 않음.", i);
-          g_bPartValid[i]=false;
+            rank_min=1;
+            LogMessage("KeyValues의 \"rank_min\"은 반드시 1 이상으로 설정하셔야 됩니다.");
         }
-      }
-      else
-      {
-        g_bPartValid[i]=false;
-      }
+        for (int i=rank_min; rank_min<=rank_max; i++)
+        {
+            Format(keyitem, sizeof(keyitem), "rankname_%d", i);
+
+            kv.GetString(keyitem, g_strPartRankName[i], sizeof(g_strPartRankName[]), "");
+        }
+
+        kv.Rewind();
+        g_iMaxPartCount=kv.GetNum("max_part_count", 200);
+        g_iAbleSlot=kv.GetNum("able_slot", 0);
+
+        if(g_iAbleSlot <= 0)
+        {
+            g_iAbleSlot=1;
+            LogMessage("최소 1개 이상의 슬릇을 활성화 해야합니다.");
+        }
+
+        for (int i=1; i<=g_iMaxPartCount; i++)
+        {
+            Format(keyitem, sizeof(keyitem), "part%d", i);
+            if(kv.JumpToKey(keyitem, false))
+            {
+                kv.GetString("name", g_strPartName[i], sizeof(g_strPartName[]), "");
+                kv.GetString("description", g_strPartDescription[i], sizeof(g_strPartDescription[]), "");
+                kv.GetString("ability_description", g_strPartAbliltyDescription[i], sizeof(g_strPartAbliltyDescription[]), "");
+
+                g_bPartValid[i]=true;
+                g_iPartRank[i]=Kv.GetNum("rank", -1);
+
+                if(rank_min > g_iPartRank[i] || rank_max < g_iPartRank[i])
+                {
+                    if(DEBUG) LogMessage("선택한 %d는 rank_min 혹은 rank_max와 유효한 범위 내에 있지 않음.", i);
+                    g_bPartValid[i]=false;
+                }
+            }
+            else
+            {
+                g_bPartValid[i]=false;
+            }
+        }
+        CloseHandle(kv);
     }
-    CloseHandle(kv);
-  }
 }
 
 stock bool Cheak_ConfigFile()
 {
-  BuildPath(Path_SM, g_strConfig, sizeof(g_strConfig), "configs/custompart.cfg");
-  if(!FileExists(config))
-  {
-    SetFailState("[CP] NO CFG FILE! (configs/custompart.cfg)");
-    return false;
-  }
-  return true;
+    BuildPath(Path_SM, g_strConfig, sizeof(g_strConfig), "configs/custompart.cfg");
+    if(!FileExists(config))
+    {
+        SetFailState("[CP] NO CFG FILE! (configs/custompart.cfg)");
+        return false;
+    }
+    return true;
 }
 
 stock bool IsValidClient(int client)
