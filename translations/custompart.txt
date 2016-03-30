@@ -50,4 +50,39 @@
     "#format" "{1:d}"
     "en"  "{1}번 슬릇"
   }
+
+  "part_shop_title"
+  {
+    "en"    "패키지 상점"
+  }
+
+  "part_backpack_title"
+  {
+    "en"    "무슨 보관함을 보시겠습니까?"
+  }
+
+  "part_partbackpack"
+  {
+    "en"    "파츠 보관함"
+  }
+
+  "part_partbackpack_title"
+  {
+    "en"    "내 파츠 보관함"
+  }
+
+  "part_packagebackpack"
+  {
+    "en"    "패키지 보관함"
+  }
+
+  "part_packagebackpack_title"
+  {
+    "en"    "내 패키지 보관함"
+  }
+
+  "part_temp"
+  {
+    "en"    "구현 중...."
+  }
 }
