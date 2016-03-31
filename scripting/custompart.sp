@@ -11,7 +11,7 @@
 
 Core Plugin By Nopied◎
 */
- // TODO: 메뉴 만들기.
+ // TODO: config 파일 탐색 및 자료 반영.
 #include <sourcemod>
 #include <morecolors>
 
@@ -19,6 +19,8 @@ Core Plugin By Nopied◎
 #define PLUGIN_AUTHOR "Nopied◎"
 #define PLUGIN_DESCRIPTION "Yup. Yup."
 #define PLUGIN_VERSION "Dev"
+
+char g_strConfig[PLATFORM_MAX_PATH];
 
 public Plugin:myinfo = {
   name=PLUGIN_NAME,
@@ -226,6 +228,82 @@ public int Command_PlayerPackageBackpackM(Menu menu, MenuAction action, int para
           CloseHandle(menu);
         }
     }
+}
+
+stock bool Cheak_ConfigFile()
+{
+    BuildPath(Path_SM, g_strConfig, sizeof(g_strConfig), "configs/custompart.cfg");
+    if(!FileExists(config))
+    {
+        SetFailState("[CP] NO CFG FILE! (configs/custompart.cfg)");
+        return false;
+    }
+    return true;
+}
+
+void Cheak_Parts()
+{
+    if(!Cheak_ConfigFile()) return;
+
+    KeyValues kv = new KeyValues("custompart");
+
+    if(kv.ImportFromFile(g_strConfig))
+    {
+        char keyitem[24];
+        int rank_min = kv.GetNum("rank_min", 1);
+        int rank_max = kv.GetNum("rank_max", 4);
+
+        if(rank_min < 1)
+        {
+            rank_min=1;
+            LogMessage("KeyValues의 \"rank_min\"은 반드시 1 이상으로 설정하셔야 됩니다.");
+        }
+        for (int i=rank_min; rank_min<=rank_max; i++)
+        {
+            Format(keyitem, sizeof(keyitem), "rankname_%d", i);
+
+            kv.GetString(keyitem, g_strPartRankName[i], sizeof(g_strPartRankName[]), "");
+        }
+
+        kv.Rewind();
+        g_iMaxPartCount=kv.GetNum("max_part_count", 200);
+        g_iAbleSlot=kv.GetNum("able_slot", 0);
+
+        if(g_iAbleSlot <= 0)
+        {
+            g_iAbleSlot=1;
+            LogMessage("최소 1개 이상의 슬릇을 활성화 해야합니다.");
+        }
+
+        for (int i=1; i<=g_iMaxPartCount; i++)
+        {
+            Format(keyitem, sizeof(keyitem), "part%d", i);
+            if(kv.JumpToKey(keyitem, false))
+            {
+                kv.GetString("name", g_strPartName[i], sizeof(g_strPartName[]), "");
+                kv.GetString("description", g_strPartDescription[i], sizeof(g_strPartDescription[]), "");
+                kv.GetString("ability_description", g_strPartAbliltyDescription[i], sizeof(g_strPartAbliltyDescription[]), "");
+
+                g_bPartValid[i]=true;
+                g_iPartRank[i]=Kv.GetNum("rank", -1);
+
+                if(rank_min > g_iPartRank[i] || rank_max < g_iPartRank[i])
+                {
+                    g_bPartValid[i]=false;
+                }
+            }
+            else
+            {
+                g_bPartValid[i]=false;
+            }
+        }
+        CloseHandle(kv);
+    }
+}
+
+static int Part()
+{
+
 }
 
 stock bool IsValidClient(int client)
