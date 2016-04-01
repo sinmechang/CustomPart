@@ -22,6 +22,9 @@ Core Plugin By Nopied◎
 
 char g_strConfig[PLATFORM_MAX_PATH];
 
+int g_iPartMemory;
+int g_iPart
+
 public Plugin:myinfo = {
   name=PLUGIN_NAME,
   author=PLUGIN_AUTHOR,
@@ -301,7 +304,17 @@ void Cheak_Parts()
     }
 }
 
-static int Part()
+static int PartInfo()
+{
+
+}
+
+static int PartInfo_Rank()
+{
+
+}
+
+static int PartInfo_Description()
 {
 
 }
