@@ -32,6 +32,7 @@ Handle PartKV;
 Handle g_hCvarChatCommand;
 
 int g_iChatCommand=0;
+int g_iMaxPartSlot=1;
 
 public void OnPluginStart()
 {
@@ -284,6 +285,89 @@ public int Command_PlayerPackageBackpackM(Menu menu, MenuAction action, int para
     }
 }
 
+int GetClientPartSlot(int client, int slot)
+{
+    if(g_iMaxPartSlot >= slot || slot < 0)
+      return 0;
+
+    char temp[50];
+    Format(temp, sizeof(temp), "custompart_slot_%i", slot);
+
+    Handle CustomPartCookie = RegClientCookie(temp, "?", CookieAccess_Protected);
+    GetClientCookie(client, CustomPartCookie, temp, sizeof(temp));
+
+    return StringToInt(temp);
+}
+
+void SetClientPartSlot(int client, int slot, int partIndex)
+{
+  char temp[50];
+  Format(temp, sizeof(temp), "custompart_slot_%i", slot);
+
+  Handle CustomPartCookie = RegClientCookie(temp, "?", CookieAccess_Protected);
+  Format(temp, sizeof(temp), "%i", slot);
+
+  SetClientCookie(client, CustomPartCookie, temp);
+}
+
+public void GetClientParts(int client, int[] parts)
+{
+  char temp[50];
+  Handle CustomPartCookie;
+  int partIndex;
+
+  for(int backpackSize=0; backpackSize < sizeof(parts); backpackSize++)
+  {
+    Format(temp, sizeof(temp), "custompart_backpack_%i", backpackSize);
+    CustomPartCookie = RegClientCookie(temp, "?", CookieAccess_Protected);
+
+    GetClientCookie(client, CustomPartCookie, temp, sizeof(temp));
+    partIndex = StringToInt(temp);
+
+    // TODO: 삭제되거나 유효하지 않은 파츠일 경우 삭제처리 그리고 백팩 정렬
+    // if()
+
+    parts[backpackSize] = partIndex;
+  }
+}
+
+void SetClientParts(int client, int[] parts)
+{
+  char temp[50];
+  Handle CustomPartCookie;
+
+  for(int backpackSize=0; backpackSize < sizeof(parts); backpackSize++)
+  {
+    Format(temp, sizeof(temp), "custompart_backpack_%i", backpackSize);
+    CustomPartCookie = RegClientCookie(temp, "?", CookieAccess_Protected);
+
+    Format(temp, sizeof(temp), "%i", parts[backpackSize]);
+    SetClientCookie(client, CustomPartCookie, temp);
+  }
+}
+
+int GetClientPartSlotCooldownTime(int client, int slot)
+{
+  char temp[75];
+  Format(temp, sizeof(temp), "custompart_slot_cooldown_%i", slot);
+
+  Handle CustomPartCookie = RegClientCookie(temp, "?", CookieAccess_Protected);
+  GetClientCookie(client, CustomPartCookie, temp, sizeof(temp));
+
+  return StringToInt(temp);
+}
+
+void SetClientPartSlotCooldownTime(int client, int slot)
+{
+  char temp[75];
+  Format(temp, sizeof(temp), "custompart_slot_cooldown_%i", slot);
+
+  Handle CustomPartCookie = RegClientCookie(temp, "?", CookieAccess_Protected);
+  Format(temp, sizeof(temp), "%i", GetTime());
+
+  SetClientCookie(client, CustomPartCookie, temp);
+}
+
 void CheckPartConfigFile()
 {
   if(PartKV != INVALID_HANDLE)
@@ -291,6 +375,10 @@ void CheckPartConfigFile()
     CloseHandle(PartKV);
     PartKV = INVALID_HANDLE;
   }
+
+  //
+
+  //
 
   char config[PLATFORM_MAX_PATH];
   BuildPath(Path_SM, config, sizeof(config), "configs/custompart.cfg");
