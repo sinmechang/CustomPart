@@ -160,6 +160,7 @@ void Player_Equip(client)
     Menu menu = new Menu(Command_PlayerEquipM);
 
     menu.SetTitle("%t", "part_equip_title");
+    for(int slot = )
     Format(item, sizeof(item), "%t", "part_temp");
     menu.AddItem("....", item);
     SetMenuExitButton(menu, true);
@@ -368,6 +369,19 @@ void SetClientPartSlotCooldownTime(int client, int slot)
   SetClientCookie(client, CustomPartCookie, temp);
 }
 
+bool IsValidPart(int partIndex)
+{
+    KvRewind(PartKV);
+
+    char temp[30];
+    Format(temp, sizeof(temp), "%i", partIndex);
+
+    if(KvJumpToKey(PartKV, temp))
+        return true;
+
+    return false;
+}
+
 void CheckPartConfigFile()
 {
   if(PartKV != INVALID_HANDLE)
@@ -395,7 +409,9 @@ void CheckPartConfigFile()
   {
     SetFailState("[CP] configs/custompart.cfg is broken?!");
   }
+
   KvRewind(PartKV);
+  g_iMaxPartSlot = KvGetNum(PartKV, "able_slot", 2);
 }
 
 stock bool IsValidClient(client)
