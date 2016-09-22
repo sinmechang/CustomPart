@@ -160,9 +160,12 @@ void Player_Equip(client)
     Menu menu = new Menu(Command_PlayerEquipM);
 
     menu.SetTitle("%t", "part_equip_title");
-    for(int slot = )
-    Format(item, sizeof(item), "%t", "part_temp");
-    menu.AddItem("....", item);
+    for(int slot=0; slot<g_iMaxPartSlot; slot++)
+    {
+      menu.
+    }
+    // Format(item, sizeof(item), "%t", "part_temp");
+    // menu.AddItem("....", item);
     SetMenuExitButton(menu, true);
     menu.Display(client, 90);
 }
