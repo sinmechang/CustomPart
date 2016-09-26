@@ -96,7 +96,6 @@ public Action Listener_Say(int client, const char[] command, int argc)
 			return Plugin_Handled;
 		}
 	}
-
 	return Plugin_Continue;
 }
 
@@ -154,7 +153,7 @@ public int Command_PartSystemM(Menu menu, MenuAction action, int param1, int par
     }
 }
 
-void Player_Equip(client)
+void Player_Equip(int client)
 {
     char item[PLATFORM_MAX_PATH];
     Menu menu = new Menu(Command_PlayerEquipM);
@@ -162,7 +161,28 @@ void Player_Equip(client)
     menu.SetTitle("%t", "part_equip_title");
     for(int slot=0; slot<g_iMaxPartSlot; slot++)
     {
-      menu.
+      int part = GetClientPartSlot(client, slot);
+
+      if(IsValidPart(part))
+      {
+        GetPartNameString(part, item, sizeof(item));
+        menu.AddItem("....", item);
+      }
+      else if(GetClientPartSlotCooldownTime(client, slot) > GetTime()) // TODO: 파츠 슬릇 쿨다운
+      {
+        int time = GetClientPartSlotCooldownTime(client, slot) - GetTime();
+        int min = time / 60;
+        int hour = min / 60;
+
+        Format(item, sizeof(item), "%t", "part_slot_overloaded", hour, min, time % 60);
+        menu.AddItem("....", item, ITEMDRAW_DISABLED);
+      }
+      else
+      {
+        SetClientPartSlotCooldownTime(client, slot, 0); // 혹시 모르니 값 초기화
+        Format(item, sizeof(item), "%t", "part_slot_none");
+        menu.AddItem("....", item);
+      }
     }
     // Format(item, sizeof(item), "%t", "part_temp");
     // menu.AddItem("....", item);
@@ -170,7 +190,7 @@ void Player_Equip(client)
     menu.Display(client, 90);
 }
 
-public int Command_PlayerEquipM(Menu menu, MenuAction action, int param1, int param2)
+public int Command_PlayerEquipM(Menu menu, MenuAction action, int client, int item)
 {
     switch(action)
     {
@@ -178,10 +198,25 @@ public int Command_PlayerEquipM(Menu menu, MenuAction action, int param1, int pa
         {
           CloseHandle(menu);
         }
+
+        case MenuAction_Select:
+        {
+          int part = GetClientPartSlot(client, item);
+
+          if(IsValidPart(part)) // 파츠 제거 후 과부하.
+          {
+            SetClientPartSlotCooldownTime(client, item, 180);
+            SetClientPartSlot(client, item, 0);
+          }
+          else // 파츠 선택
+          {
+
+          }
+        }
     }
 }
 
-void Player_Shop(client)
+void Player_Shop(int client)
 {
     char item[PLATFORM_MAX_PATH];
     Menu menu = new Menu(Command_PlayerShopM);
@@ -193,7 +228,7 @@ void Player_Shop(client)
     menu.Display(client, 90);
 }
 
-public int Command_PlayerShopM(Menu menu, MenuAction action, int param1, int param2)
+public int Command_PlayerShopM(Menu menu, MenuAction action, int client, int item)
 {
     switch(action)
     {
@@ -218,7 +253,7 @@ void Player_Backpack(int client)
     menu.Display(client, 90);
 }
 
-public int Command_PlayerBackpackM(Menu menu, MenuAction action, int param1, int param2)
+public int Command_PlayerBackpackM(Menu menu, MenuAction action, int client, int item)
 {
     switch(action)
     {
@@ -314,6 +349,23 @@ void SetClientPartSlot(int client, int slot, int partIndex)
   SetClientCookie(client, CustomPartCookie, temp);
 }
 
+public void GetPartNameString(int partIndex, char[] name, int buffer)
+{
+  if(!IsValidPart(partIndex)) // TODO: IS THIS NEEDED???
+  {
+    Format(name, buffer, "");
+    return;
+  }
+
+  char item[20];
+  Format(item, sizeof(item), "part%i", partIndex);
+
+  KvRewind(PartKV);
+
+  KvJumpToKey(PartKV, item);
+  KvGetString(PartKV, "name", name, buffer);
+}
+
 public void GetClientParts(int client, int[] parts)
 {
   char temp[50];
@@ -361,13 +413,16 @@ int GetClientPartSlotCooldownTime(int client, int slot)
   return StringToInt(temp);
 }
 
-void SetClientPartSlotCooldownTime(int client, int slot)
+void SetClientPartSlotCooldownTime(int client, int slot, int min)
 {
   char temp[75];
   Format(temp, sizeof(temp), "custompart_slot_cooldown_%i", slot);
 
   Handle CustomPartCookie = RegClientCookie(temp, "?", CookieAccess_Protected);
-  Format(temp, sizeof(temp), "%i", GetTime());
+  if(min>0)
+    Format(temp, sizeof(temp), "%i", GetTime()+(min*60));
+  else
+    temp = "";
 
   SetClientCookie(client, CustomPartCookie, temp);
 }
