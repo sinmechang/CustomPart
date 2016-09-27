@@ -427,6 +427,9 @@ public void SoftClientParts(int client, int[] parts)
     {
         for(int ser = notValidParts[cou]; ser < sizeof(parts); ser++)
         {
+            if(ser+1 < 0 || ser+1 >= sizeof(parts))
+                continue;
+
             if(IsValidPart(parts[ser+1]))
                 tempParts[ser] = parts[ser+1];
         }
