@@ -207,6 +207,7 @@ public int Command_PlayerEquipM(Menu menu, MenuAction action, int client, int it
           {
             SetClientPartSlotCooldownTime(client, item, 180);
             SetClientPartSlot(client, item, 0);
+            // 메세지
           }
           else // 파츠 선택
           {
@@ -385,6 +386,56 @@ public void GetClientParts(int client, int[] parts)
 
     parts[backpackSize] = partIndex;
   }
+}
+
+int GetClientPartCount(int client)
+{
+    char temp[50];
+    Handle CustomPartCookie;
+
+    for(int backpackSize=0; ; backpackSize++)
+    {
+        Format(temp, sizeof(temp), "custompart_backpack_%i", backpackSize);
+        CustomPartCookie = RegClientCookie(temp, "?", CookieAccess_Protected);
+
+        GetClientCookie(client, CustomPartCookie, temp, sizeof(temp));
+
+        if(StringToInt(temp) <= 0)
+            return backpackSize;
+    }
+
+    return -1;
+}
+
+public void SoftClientParts(int client, int[] parts)
+{
+    int tempParts[sizeof(parts)]; // TODO: IS THIS NEEDED!?!?!?!?
+    int notValidParts[sizeof(parts)];
+    int notValidCount=0;
+
+    for(int ser=0; ser < sizeof(parts); ser++)
+    {
+        tempParts[ser] = parts[ser];
+
+        if(!IsValidPart(parts[ser]))
+        {
+            notValidParts[notValidCount++] = ser;
+        }
+    }
+
+    for(int cou = 0; cou < notValidCount; cou++)
+    {
+        for(int ser = notValidParts[cou]; ser < sizeof(parts); ser++)
+        {
+            if(IsValidPart(parts[ser+1]))
+                tempParts[ser] = parts[ser+1];
+        }
+    }
+
+    for(int ser=0; ser < sizeof(parts); ser++)
+    {
+        parts[ser] = tempParts[ser];
+    }
 }
 
 void SetClientParts(int client, int[] parts)
