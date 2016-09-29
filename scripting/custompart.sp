@@ -37,6 +37,8 @@ Handle g_hCvarChatCommand;
 int g_iChatCommand=0;
 int g_iMaxPartSlot=1;
 
+int SelectedPackage[MAXPLAYERS+1];
+
 public void OnPluginStart()
 {
   g_hCvarChatCommand = CreateConVar("cp_chatcommand", "파츠,part,스킬");
@@ -240,12 +242,10 @@ void Player_Shop(int client)
     bool compilerNo = true; // LOLOLOLOL
     do
     {
-        KvRewind(PartKV);
-        Format(item, sizeof(item), "package%i", ++packageCount);
+        if(!IsValidPart(++packageCount, TYPE_PACKAGE))
+            break;
 
-        if(!KvJumpToKey(PartKV, item)) break;
-
-        KvGetString(PartKV, "name", item, sizeof(item));
+        GetPartString(packageCount, "name", item, sizeof(item), TYPE_PACKAGE);
         menu.AddItem("....", item);
     }
     while(compilerNo);
@@ -259,7 +259,7 @@ public int Command_PlayerShopM(Menu menu, MenuAction action, int client, int ite
     {
         case MenuAction_End:
         {
-          CloseHandle(menu);
+            CloseHandle(menu);
         }
 
         case MenuAction_Select:
@@ -271,7 +271,53 @@ public int Command_PlayerShopM(Menu menu, MenuAction action, int client, int ite
 
 void ShowPackageInfo(int client, int packageIndex, bool viewInShop = false)
 {
-    Menu menu = new Menu(Command_PlayerShopM);
+    SelectedPackage[client] = packageIndex;
+
+    Menu menu = new Menu(ShowPackageInfoM);
+    char item[600];
+    char temp[200];
+
+    GetPartString(packageIndex, "name", temp, sizeof(temp), TYPE_PACKAGE);
+    Format(item, sizeof(item), "패키지 정보:\n -  이름: %s", temp);
+
+    GetPartString(packageIndex, "description", temp, sizeof(temp), TYPE_PACKAGE);
+    Format(item, sizeof(item), "%s\n - 설명: %s", item, temp);
+
+    GetPartString(packageIndex, "ability_description", temp, sizeof(temp), TYPE_PACKAGE);
+    Format(item, sizeof(item), "%s\n - 능력 설명: %s", item, temp);
+
+    // GetPartString(packageIndex, "ability_description", temp, sizeof(temp), TYPE_PACKAGE);
+    Format(item, sizeof(item), "%s\n - 가격: %d", item, GetPackageMoney(packageIndex));
+
+    if(viewInShop)
+    {
+        Format(item, sizeof(item), "%s\n 구매할 시 현재 가지고 있는 머니에서 차감됩니다.\n계속하시겠습니까?", item);
+        menu.AddItem("....", "네, 구매하겠습니다.");
+    }
+    menu.SetTitle(item);
+    SetMenuExitButton(menu, true);
+    menu.Display(client, 90);
+}
+
+public int ShowPackageInfoM(Menu menu, MenuAction action, int client, int item)
+{
+    switch(action)
+    {
+        case MenuAction_End:
+        {
+            CloseHandle(menu);
+        }
+
+        case MenuAction_Select:
+        {
+            ChoosePackage(client, SelectedPackage[client]);
+        }
+    }
+}
+
+void ChoosePackage(int client, int packageIndex)
+{
+    
 }
 
 void Player_Backpack(int client)
@@ -359,6 +405,17 @@ public int Command_PlayerPackageBackpackM(Menu menu, MenuAction action, int para
     }
 }
 
+int GetPackageMoney(int packageIndex)
+{
+    KvRewind(PartKV);
+
+    char item[30];
+    Format(item, sizeof(item), "package%i", packageIndex);
+
+    KvJumpToKey(PartKV, item);
+    return KvGetNum(PartKV, "money", 0);
+}
+
 int GetClientMoney(int client)
 {
     char temp[50];
@@ -402,7 +459,7 @@ void SetClientPartSlot(int client, int slot, int partIndex)
   SetClientCookie(client, CustomPartCookie, temp);
 }
 
-public bool GetPartString(int type = TYPE_PART, int partIndex, const char[] name, char[] partStr, int buffer)
+public bool GetPartString(int partIndex, const char[] name, char[] partStr, int buffer, int type = TYPE_PART)
 {
     if(!IsValidPart(partIndex, type)) // TODO: IS THIS NEEDED???
     {
