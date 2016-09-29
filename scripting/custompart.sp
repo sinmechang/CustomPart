@@ -21,6 +21,9 @@ Core Plugin By Nopied◎
 #define PLUGIN_DESCRIPTION "Yup. Yup."
 #define PLUGIN_VERSION "Dev"
 
+#define TYPE_PART (1<<1);
+#define TYPE_PACKAGE (1<<2);
+
 public Plugin myinfo = {
   name=PLUGIN_NAME,
   author=PLUGIN_AUTHOR,
@@ -39,19 +42,19 @@ public void OnPluginStart()
   g_hCvarChatCommand = CreateConVar("cp_chatcommand", "파츠,part,스킬");
 
   AddCommandListener(Listener_Say, "say");
-	AddCommandListener(Listener_Say, "say_team");
+  AddCommandListener(Listener_Say, "say_team");
 
   CheckPartConfigFile();
 
   LoadTranslations("custompart");
   LoadTranslations("common.phrases");
-	LoadTranslations("core.phrases");
+  LoadTranslations("core.phrases");
 }
 
 public void OnMapStart()
 {
 	ChangeChatCommand();
-  CheckPartConfigFile();
+    CheckPartConfigFile();
 }
 
 void ChangeChatCommand()
@@ -66,6 +69,13 @@ void ChangeChatCommand()
 		LogMessage("[CP] Added chat command: %s", g_strChatCommand[i]);
 		g_iChatCommand++;
 	}
+}
+
+public void OnClientPutInServer(int client)
+{
+    int[] parts;
+    GetClientParts(client, parts);
+    SoftClientParts(client, parts);
 }
 
 public Action Listener_Say(int client, const char[] command, int argc)
@@ -165,7 +175,7 @@ void Player_Equip(int client)
 
       if(IsValidPart(part))
       {
-        GetPartNameString(part, item, sizeof(item));
+        GetPartString(part, "name", item, sizeof(item));
         menu.AddItem("....", item);
       }
       else if(GetClientPartSlotCooldownTime(client, slot) > GetTime()) // TODO: 파츠 슬릇 쿨다운
@@ -223,8 +233,22 @@ void Player_Shop(int client)
     Menu menu = new Menu(Command_PlayerShopM);
 
     menu.SetTitle("%t", "part_shop_title");
-    Format(item, sizeof(item), "%t", "part_temp");
-    menu.AddItem("....", item);
+    // Format(item, sizeof(item), "%t", "part_temp");
+    // menu.AddItem("....", item);
+
+    int packageCount=0;
+    bool compilerNo = true; // LOLOLOLOL
+    do
+    {
+        KvRewind(PartKV);
+        Format(item, sizeof(item), "package%i", ++packageCount);
+
+        if(!KvJumpToKey(PartKV, item)) break;
+
+        KvGetString(PartKV, "name", item, sizeof(item));
+        menu.AddItem("....", item);
+    }
+    while(compilerNo);
     SetMenuExitButton(menu, true);
     menu.Display(client, 90);
 }
@@ -237,7 +261,17 @@ public int Command_PlayerShopM(Menu menu, MenuAction action, int client, int ite
         {
           CloseHandle(menu);
         }
+
+        case MenuAction_Select:
+        {
+            ShowPackageInfo(client, item+1, true);
+        }
     }
+}
+
+void ShowPackageInfo(int client, int packageIndex, bool viewInShop = false)
+{
+    Menu menu = new Menu(Command_PlayerShopM);
 }
 
 void Player_Backpack(int client)
@@ -279,7 +313,7 @@ public int Command_PlayerBackpackM(Menu menu, MenuAction action, int client, int
     }
 }
 
-void Player_PartBackpack(int client)
+void Player_PartBackpack(int client, bool selectforslot = false)
 {
     char item[PLATFORM_MAX_PATH];
     Menu menu = new Menu(Command_PlayerPartBackpackM);
@@ -325,6 +359,24 @@ public int Command_PlayerPackageBackpackM(Menu menu, MenuAction action, int para
     }
 }
 
+int GetClientMoney(int client)
+{
+    char temp[50];
+    Handle CustomPartCookie = RegClientCookie("custompart_money", "?", CookieAccess_Protected);
+
+    GetClientCookie(client, CustomPartCookie, temp, sizeof(temp));
+    return StringToInt(temp);
+}
+
+void SetClientMoney(int client, int money)
+{
+    char temp[50];
+    Handle CustomPartCookie = RegClientCookie("custompart_money", "?", CookieAccess_Protected);
+
+    Format(temp, sizeof(temp), "%i", money);
+    SetClientCookie(client, CustomPartCookie, temp);
+}
+
 int GetClientPartSlot(int client, int slot)
 {
     if(g_iMaxPartSlot >= slot || slot < 0)
@@ -350,30 +402,33 @@ void SetClientPartSlot(int client, int slot, int partIndex)
   SetClientCookie(client, CustomPartCookie, temp);
 }
 
-public void GetPartNameString(int partIndex, char[] name, int buffer)
+public bool GetPartString(int type = TYPE_PART, int partIndex, const char[] name, char[] partStr, int buffer)
 {
-  if(!IsValidPart(partIndex)) // TODO: IS THIS NEEDED???
-  {
-    Format(name, buffer, "");
-    return;
-  }
+    if(!IsValidPart(partIndex, type)) // TODO: IS THIS NEEDED???
+    {
+      Format(name, buffer, "");
+      return false;
+    }
 
-  char item[20];
-  Format(item, sizeof(item), "part%i", partIndex);
+    char item[50];
+    Format(temp, sizeof(temp), "%s%i", type == TYPE_PACKAGE ? "package" : "part", partIndex);
 
-  KvRewind(PartKV);
+    KvRewind(PartKV);
 
-  KvJumpToKey(PartKV, item);
-  KvGetString(PartKV, "name", name, buffer);
+    KvJumpToKey(PartKV, item);
+    KvGetString(PartKV, name, partStr, buffer);
+
+    return true;
 }
 
-public void GetClientParts(int client, int[] parts)
+public int GetClientParts(int client, int[] parts)
 {
   char temp[50];
   Handle CustomPartCookie;
   int partIndex;
 
-  for(int backpackSize=0; backpackSize < sizeof(parts); backpackSize++)
+  int backpackSize;
+  for(backpackSize=0; backpackSize < sizeof(parts); backpackSize++)
   {
     Format(temp, sizeof(temp), "custompart_backpack_%i", backpackSize);
     CustomPartCookie = RegClientCookie(temp, "?", CookieAccess_Protected);
@@ -381,11 +436,13 @@ public void GetClientParts(int client, int[] parts)
     GetClientCookie(client, CustomPartCookie, temp, sizeof(temp));
     partIndex = StringToInt(temp);
 
-    // TODO: 삭제되거나 유효하지 않은 파츠일 경우 삭제처리 그리고 백팩 정렬
-    // if()
-
     parts[backpackSize] = partIndex;
+
+    if(!IsValidPart(partIndex))
+        break;
   }
+
+  return backpackSize;
 }
 
 int GetClientPartCount(int client)
@@ -439,6 +496,8 @@ public void SoftClientParts(int client, int[] parts)
     {
         parts[ser] = tempParts[ser];
     }
+
+    SetClientParts(client, parts);
 }
 
 void SetClientParts(int client, int[] parts)
@@ -481,18 +540,20 @@ void SetClientPartSlotCooldownTime(int client, int slot, int min)
   SetClientCookie(client, CustomPartCookie, temp);
 }
 
-bool IsValidPart(int partIndex)
+bool IsValidPart(int partIndex, int type = TYPE_PART)
 {
     KvRewind(PartKV);
 
     char temp[30];
-    Format(temp, sizeof(temp), "%i", partIndex);
+    Format(temp, sizeof(temp), "%s%i", type == TYPE_PACKAGE ? "package" : "part", partIndex);
 
     if(KvJumpToKey(PartKV, temp))
         return true;
 
     return false;
 }
+
+bool IsValidP
 
 void CheckPartConfigFile()
 {
