@@ -21,8 +21,14 @@ Core Plugin By Nopied◎
 #define PLUGIN_DESCRIPTION "Yup. Yup."
 #define PLUGIN_VERSION "Dev"
 
-#define TYPE_PART (1<<1);
-#define TYPE_PACKAGE (1<<2);
+// #define TYPE_PART (1<<1);
+// #define TYPE_PACKAGE (1<<2);
+
+enum PartType
+{
+  TYPE_PART=0,
+  TYPE_PACKAGE
+};
 
 public Plugin myinfo = {
   name=PLUGIN_NAME,
@@ -32,16 +38,20 @@ public Plugin myinfo = {
 };
 
 Handle PartKV;
-Handle g_hCvarChatCommand;
+Handle cvarChatCommand;
+Handle cvarMaxBackPack;
 
 int g_iChatCommand=0;
+
+int g_iMaxEnablePartCount;
 int g_iMaxPartSlot=1;
 
 int SelectedPackage[MAXPLAYERS+1];
 
 public void OnPluginStart()
 {
-  g_hCvarChatCommand = CreateConVar("cp_chatcommand", "파츠,part,스킬");
+  cvarChatCommand = CreateConVar("cp_chatcommand", "파츠,part,스킬");
+  cvarMaxBackPack = CreateConVar("cp_player_max_backpack", "30", "백팩 사이즈", _, true, 1.0);
 
   AddCommandListener(Listener_Say, "say");
   AddCommandListener(Listener_Say, "say_team");
@@ -64,7 +74,7 @@ void ChangeChatCommand()
 	g_iChatCommand = 0;
 
 	char cvarV[100];
-	GetConVarString(g_hCvarChatCommand, cvarV, sizeof(cvarV));
+	GetConVarString(cvarChatCommand, cvarV, sizeof(cvarV));
 
 	for (int i=0; i<ExplodeString(cvarV, ",", g_strChatCommand, sizeof(g_strChatCommand), sizeof(g_strChatCommand[])); i++)
 	{
@@ -75,9 +85,10 @@ void ChangeChatCommand()
 
 public void OnClientPutInServer(int client)
 {
-    int[] parts;
-    GetClientParts(client, parts);
-    SoftClientParts(client, parts);
+    // int parts[g_iMaxEnablePartCount];
+    // GetClientParts(client, parts);
+    // SoftClientParts(client, parts);
+    SoftClientParts(client);
 }
 
 public Action Listener_Say(int client, const char[] command, int argc)
@@ -310,14 +321,37 @@ public int ShowPackageInfoM(Menu menu, MenuAction action, int client, int item)
 
         case MenuAction_Select:
         {
-            ChoosePackage(client, SelectedPackage[client]);
+            int money = GetClientMoney(client);
+            if(money >= GetPackageMoney(SelectedPackage[client]))
+            {
+                SetClientMoney(client, money - GetPackageMoney(SelectedPackage[client]))
+                ChoosePackage(client, SelectedPackage[client]);
+            }
+            else
+            {
+                CPrintToChat(client, "{yellow}[CP]{default} "); // 머니 부족
+            }
         }
     }
 }
 
 void ChoosePackage(int client, int packageIndex)
 {
-    
+    char keyV[100][15]; // TODO: 커스터마이즈
+    char temp[300];
+    int partList[100];
+    int count=0;
+
+    GetPartString(packageIndex, "parts", temp, sizeof(temp), TYPE_PACKAGE);
+    ExplodeString(temp, ";", keyV, 100, 15);
+
+    while((partList[count] = StringToInt(partList[count])) > 0)
+        count++;
+
+    int random = GetRandomInt(0, count);
+
+    // partList[random] is answer.
+
 }
 
 void Player_Backpack(int client)
@@ -459,7 +493,7 @@ void SetClientPartSlot(int client, int slot, int partIndex)
   SetClientCookie(client, CustomPartCookie, temp);
 }
 
-public bool GetPartString(int partIndex, const char[] name, char[] partStr, int buffer, int type = TYPE_PART)
+public bool GetPartString(int partIndex, const char[] name, char[] partStr, int buffer, PartType type = TYPE_PART)
 {
     if(!IsValidPart(partIndex, type)) // TODO: IS THIS NEEDED???
     {
@@ -478,6 +512,8 @@ public bool GetPartString(int partIndex, const char[] name, char[] partStr, int 
     return true;
 }
 
+void
+
 public int GetClientParts(int client, int[] parts)
 {
   char temp[50];
@@ -494,9 +530,10 @@ public int GetClientParts(int client, int[] parts)
     partIndex = StringToInt(temp);
 
     parts[backpackSize] = partIndex;
-
+/*
     if(!IsValidPart(partIndex))
         break;
+*/
   }
 
   return backpackSize;
@@ -521,8 +558,9 @@ int GetClientPartCount(int client)
     return -1;
 }
 
-public void SoftClientParts(int client, int[] parts)
+public void SoftClientParts(int client)
 {
+    int parts[GetClientPartCount(client)];
     int tempParts[sizeof(parts)]; // TODO: IS THIS NEEDED!?!?!?!?
     int notValidParts[sizeof(parts)];
     int notValidCount=0;
@@ -572,6 +610,24 @@ void SetClientParts(int client, int[] parts)
   }
 }
 
+int GetClientBackpackAdditionalSize(int client)
+{
+    Handle CustomPartCookie = RegClientCookie("custompart_backpacksize", "?", CookieAccess_Protected);
+    char temp[20];
+    GetClientCookie(client, CustomPartCookie, temp, sizeof(temp));
+
+    return StringToInt(temp);
+}
+
+void SetClientBackpackAdditionalSize(int client, int size)
+{
+    Handle CustomPartCookie = RegClientCookie("custompart_backpacksize", "?", CookieAccess_Protected);
+    char temp[20];
+
+    Format(temp, sizeof(temp), "%i", size);
+    SetClientCookie(client, CustomPartCookie, temp);
+}
+
 int GetClientPartSlotCooldownTime(int client, int slot)
 {
   char temp[75];
@@ -597,7 +653,7 @@ void SetClientPartSlotCooldownTime(int client, int slot, int min)
   SetClientCookie(client, CustomPartCookie, temp);
 }
 
-bool IsValidPart(int partIndex, int type = TYPE_PART)
+bool IsValidPart(int partIndex, PartType type = TYPE_PART)
 {
     KvRewind(PartKV);
 
@@ -609,8 +665,6 @@ bool IsValidPart(int partIndex, int type = TYPE_PART)
 
     return false;
 }
-
-bool IsValidP
 
 void CheckPartConfigFile()
 {
@@ -642,6 +696,14 @@ void CheckPartConfigFile()
 
   KvRewind(PartKV);
   g_iMaxPartSlot = KvGetNum(PartKV, "able_slot", 2);
+  g_iMaxEnablePartCount = 0;
+
+  char key[30];
+  do
+  {
+      Format(key, sizeof(key), "part%i", ++g_iMaxEnablePartCount); // TODO: Make sure g_iMaxEnablePartCount.....
+  }
+  while(KvJumpToKey(PartKV, key));
 }
 
 stock bool IsValidClient(client)
