@@ -13,21 +13,32 @@ Core Plugin By Nopied◎
 */
 
 #include <sourcemod>
-#include <clientprefs>
 #include <morecolors>
+#include <sdktools>
+#include <sdkhooks>
+#include <freak_fortress_2>
 
 #define PLUGIN_NAME "CustomPart Core"
 #define PLUGIN_AUTHOR "Nopied◎"
 #define PLUGIN_DESCRIPTION "Yup. Yup."
 #define PLUGIN_VERSION "Dev"
 
-// #define TYPE_PART (1<<1);
-// #define TYPE_PACKAGE (1<<2);
+#define INVALID_PARTID -1
 
-enum PartType
+enum PartRank
 {
-  TYPE_PART=0,
-  TYPE_PACKAGE
+    Rank_Normal=0,
+    Rank_Rare,
+    Rank_Hero,
+    Rank_Legend,
+    Rank_Another
+};
+
+enum PartInfo
+{
+    Info_EntId=0,
+    Info_Rank,
+    Info_CustomInfo
 };
 
 public Plugin myinfo = {
@@ -39,19 +50,32 @@ public Plugin myinfo = {
 
 Handle PartKV;
 Handle cvarChatCommand;
-Handle cvarMaxBackPack;
 
 int g_iChatCommand=0;
 
-int g_iMaxEnablePartCount;
-int g_iMaxPartSlot=1;
+int MaxPartGlobalSlot=1;
 
-int SelectedPackage[MAXPLAYERS+1];
+bool enabled;
+
+TFTeam PropForTeam;
+
+Handle cvarPropCount;
+Handle cvarPropVelocity;
+Handle cvarPropForNoBossTeam;
+Handle cvarPropSize;
+
+int ActivedPartCount[MAXPLAYERS+1];
+int MaxPartSlot[MAXPLAYERS+1];
+ArrayList ActivedPartSlotArray[MAXPLAYERS+1];
 
 public void OnPluginStart()
 {
   cvarChatCommand = CreateConVar("cp_chatcommand", "파츠,part,스킬");
-  cvarMaxBackPack = CreateConVar("cp_player_max_backpack", "30", "백팩 사이즈", _, true, 1.0);
+
+  cvarPropCount = CreateConVar("cp_prop_count", "1", "생성되는 프롭 갯수, 0은 생성을 안함", _, true, 0.0);
+  cvarPropVelocity = CreateConVar("cp_prop_velocity", "250.0", "프롭 생성시 흩어지는 최대 속도, 설정한 범위 내로 랜덤으로 속도가 정해집니다.", _, true, 0.0);
+  cvarPropForNoBossTeam = CreateConVar("cp_prop_for_team", "2", "0 혹은 1은 제한 없음, 2는 레드팀에게만, 3은 블루팀에게만. (생성도 포함됨.)", _, true, 0.0, true, 2.0);
+  cvarPropSize = CreateConVar("cp_prop_size", "50.0", "캡슐 섭취 범위", _, true, 0.1);
 
   AddCommandListener(Listener_Say, "say");
   AddCommandListener(Listener_Say, "say_team");
@@ -61,12 +85,22 @@ public void OnPluginStart()
   LoadTranslations("custompart");
   LoadTranslations("common.phrases");
   LoadTranslations("core.phrases");
+
+  HookEvent("player_spawn", OnPlayerSpawn);
+  HookEvent("player_death", OnPlayerDeath);
+
+  for(int client = 1;  client < MaxClients; client++)
+  {
+    ActivedPartSlotArray[client] = ArrayList();
+  }
+
 }
 
 public void OnMapStart()
 {
 	ChangeChatCommand();
     CheckPartConfigFile();
+    CreateTimer(0.2, PrecacheTimer);
 }
 
 void ChangeChatCommand()
@@ -85,14 +119,129 @@ void ChangeChatCommand()
 
 public void OnClientPutInServer(int client)
 {
-    // int parts[g_iMaxEnablePartCount];
-    // GetClientParts(client, parts);
-    // SoftClientParts(client, parts);
-    SoftClientParts(client);
+
+}
+
+public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
+{
+    int client = GetClientOfUserId(GetEventInt(event, "userid"));
+
+    MaxPartSlot[client] = MaxPartGlobalSlot;
+}
+
+public Action OnPlayerDeath(Handle event, const char[] name, bool dont)
+{
+    int client = GetClientOfUserId(GetEventInt(event, "userid"));
+
+  	if(!enabled || !IsCorrectTeam(client) || CheckRoundState() != 1)
+  	{
+    	return Plugin_Continue;
+  	}
+
+	bool IsFake = false;
+	if(GetEventInt(event, "death_flags") & TF_DEATHFLAG_DEADRINGER)
+		IsFake = true;
+
+  	for(int count = 0; count < GetConVarInt(cvarPropCount); count++)
+  	{
+        float position[3];
+        GetEntPropVector(client, Prop_Send, "m_vecOrigin", position);
+
+        float velocity[3];
+        velocity[0] = GetRandomFloat(GetConVarFloat(cvarPropVelocity)*-0.5, GetConVarFloat(cvarPropVelocity)*0.5);
+        velocity[1] = GetRandomFloat(GetConVarFloat(cvarPropVelocity)*-0.5, GetConVarFloat(cvarPropVelocity)*0.5);
+        velocity[2] = GetRandomFloat(GetConVarFloat(cvarPropVelocity)*-0.5, GetConVarFloat(cvarPropVelocity)*0.5);
+        NormalizeVector(velocity, velocity);
+
+        SpawnCustomPart(RandomPartRank(), position, velocity, IsFake);
+    }
+}
+
+int SpawnCustomPart(PartRank partRank, float position[3], float velocity[3], bool IsFake)
+{
+    int prop = CreateEntityByName("prop_physics_override");
+    if(IsValidEntity(prop))
+    {
+        char modelPath[PLATFORM_MAX_PATH];
+        char partAccount[128];
+        int colors[4];
+
+        GetPartModelString(partRank, modelPath);
+        Format(partAccount, sizeof(partAccount), "partEntId=%i?partRank=%i?settingPartIndex=0", prop);
+
+        SetEntityModel(prop, modelPath);
+        SetEntityMoveType(prop, MOVETYPE_VPHYSICS);
+        SetEntProp(prop, Prop_Send, "m_CollisionGroup", 2);
+        SetEntPropString(prop, Prop_Send, "m_iName", partAccount);
+        // SetEntProp(prop, Prop_Send, "m_usSolidFlags", 16); // 0x0004
+        SetEntProp(prop, Prop_Send, "m_usSolidFlags", 0x0004);
+        DispatchSpawn(prop);
+
+        GetPartRankColor(partRank, colors);
+        TF2_SetGlowColor(TF2_CreateGlow(prop), colors);
+
+        TeleportEntity(prop, position, NULL_VECTOR, velocity);
+        // TeleportEntity(prop, position, NULL_VECTOR, NULL_VECTOR);
+
+        if(IsFake)
+        {
+            CreateTimer(2.0, FakePickup, EntIndexToEntRef(prop));
+            SDKHook(prop, SDKHook_SetTransmit, FakePropTransmit);
+
+        }
+        else
+        {
+            CreateTimer(0.05, OnPickup, EntIndexToEntRef(prop));
+        }
+        return prop;
+    }
+    return -1;
+
+}
+
+public Action FakePropTransmit(int entity, int client)
+{
+	if(IsCorrectTeam(client))
+		return Plugin_Handled;
+
+	return Plugin_Continue;
+}
+
+public Action OnPickup(Handle timer, int entRef) // Copied from FF2
+{
+	int entity = EntRefToEntIndex(entRef);
+	if(!IsValidEntity(entity))
+		return Plugin_Handled;
+
+	int client = IsEntityStuck(entity);
+	if(IsValidClient(client))
+	{
+		if((IsCorrectTeam(client) && CanUseSystemClass(TF2_GetPlayerClass(client)))
+        || (IsBoss(client) && CanUseSystemBoss(client) && view_as<PartRank>(GetPartPropInfo(entity, Info_Rank)) == Rank_Another)
+        )
+		{
+			char centerMessage[100];
+			PrintCenterText(client, "파츠를 흭득하셨습니다!");
+
+            int part = RandomPart(client, GetPartPropInfo(entity, Info_Rank));
+            SetPlayerPartSlot(client, FindActiveSlots(client), part);
+
+			AcceptEntityInput(entity, "kill");
+			return Plugin_Handled;
+		}
+		else
+		{
+		  KickEntity(client, entity);
+		}
+	}
+
+	CreateTimer(0.05, OnPickup, EntIndexToEntRef(entity));
+	return Plugin_Continue;
 }
 
 public Action Listener_Say(int client, const char[] command, int argc)
 {
+    /*
 	if(!IsValidClient(client)) return Plugin_Continue;
 
 	char strChat[100];
@@ -119,550 +268,250 @@ public Action Listener_Say(int client, const char[] command, int argc)
 			return Plugin_Handled;
 		}
 	}
+    */
+
 	return Plugin_Continue;
+
 }
 
 void ViewPartMenu(int client)
 {
-  char item[PLATFORM_MAX_PATH];
-  Menu menu = new Menu(Command_PartSystemM);
 
-  menu.SetTitle("%t", "part_menu_title");
-
-  Format(item, sizeof(item), "%t", "part_menu_1");
-  menu.AddItem("view who's part who called menu", item);
-  Format(item, sizeof(item), "%t", "part_menu_2");
-  menu.AddItem("shop", item);
-  Format(item, sizeof(item), "%t", "part_menu_3");
-  menu.AddItem("PartBackpack", item);
-/*     Format(item, sizeof(item), "%t", "part_menu_4");
-  menu.AddItem("ChangeLog", item); */
-  SetMenuExitButton(menu, true);
-  menu.Display(client, 90);
 }
 
-public int Command_PartSystemM(Menu menu, MenuAction action, int param1, int param2)
+int RandomPart(int client, PartRank rank)
 {
-    switch(action)
-    {
-        case MenuAction_End:
-        {
-          CloseHandle(menu);
-        }
+    int[] parts;
+    int count = 0;
+    int part;
 
-        case MenuAction_Select:
-        {
-            switch(param2)
-            {
-              case 0:  // 플레이어의 파츠 설정
-              {
-                Player_Equip(param1);
-              }
-              case 1: // 상점
-              {
-                Player_Shop(param1);
-              }
-              case 2: // 보관함
-              {
-                 Player_Backpack(param1);
-              }
-    /*          case 3:  // 버전 패치 사항
-              {
-                 ChangeLog(param1);
-              }
-    */
-            }
-        }
-    }
-}
+    char key[20];
+    bool isBoss = IsBoss(client);
+    TFClassType class = TF2_GetPlayerClass(client);
 
-void Player_Equip(int client)
-{
-    char item[PLATFORM_MAX_PATH];
-    Menu menu = new Menu(Command_PlayerEquipM);
+    Handle clonedHandle = CloneHandle(PartKV);
+    KvRewind(clonedHandle);
 
-    menu.SetTitle("%t", "part_equip_title");
-    for(int slot=0; slot<g_iMaxPartSlot; slot++)
-    {
-      int part = GetClientPartSlot(client, slot);
-
-      if(IsValidPart(part))
-      {
-        GetPartString(part, "name", item, sizeof(item));
-        menu.AddItem("....", item);
-      }
-      else if(GetClientPartSlotCooldownTime(client, slot) > GetTime()) // TODO: 파츠 슬릇 쿨다운
-      {
-        int time = GetClientPartSlotCooldownTime(client, slot) - GetTime();
-        int min = time / 60;
-        int hour = min / 60;
-
-        Format(item, sizeof(item), "%t", "part_slot_overloaded", hour, min, time % 60);
-        menu.AddItem("....", item, ITEMDRAW_DISABLED);
-      }
-      else
-      {
-        SetClientPartSlotCooldownTime(client, slot, 0); // 혹시 모르니 값 초기화
-        Format(item, sizeof(item), "%t", "part_slot_none");
-        menu.AddItem("....", item);
-      }
-    }
-    // Format(item, sizeof(item), "%t", "part_temp");
-    // menu.AddItem("....", item);
-    SetMenuExitButton(menu, true);
-    menu.Display(client, 90);
-}
-
-public int Command_PlayerEquipM(Menu menu, MenuAction action, int client, int item)
-{
-    switch(action)
-    {
-        case MenuAction_End:
-        {
-          CloseHandle(menu);
-        }
-
-        case MenuAction_Select:
-        {
-          int part = GetClientPartSlot(client, item);
-
-          if(IsValidPart(part)) // 파츠 제거 후 과부하.
-          {
-            SetClientPartSlotCooldownTime(client, item, 180);
-            SetClientPartSlot(client, item, 0);
-            // 메세지
-          }
-          else // 파츠 선택
-          {
-
-          }
-        }
-    }
-}
-
-void Player_Shop(int client)
-{
-    char item[PLATFORM_MAX_PATH];
-    Menu menu = new Menu(Command_PlayerShopM);
-
-    menu.SetTitle("%t", "part_shop_title");
-    // Format(item, sizeof(item), "%t", "part_temp");
-    // menu.AddItem("....", item);
-
-    int packageCount=0;
-    bool compilerNo = true; // LOLOLOLOL
     do
     {
-        if(!IsValidPart(++packageCount, TYPE_PACKAGE))
-            break;
-
-        GetPartString(packageCount, "name", item, sizeof(item), TYPE_PACKAGE);
-        menu.AddItem("....", item);
-    }
-    while(compilerNo);
-    SetMenuExitButton(menu, true);
-    menu.Display(client, 90);
-}
-
-public int Command_PlayerShopM(Menu menu, MenuAction action, int client, int item)
-{
-    switch(action)
-    {
-        case MenuAction_End:
+        KvGetSectionName(clonedHandle, key, sizeof(key));
+        if(!StrContains(key, "part"))
         {
-            CloseHandle(menu);
-        }
-
-        case MenuAction_Select:
-        {
-            ShowPackageInfo(client, item+1, true);
-        }
-    }
-}
-
-void ShowPackageInfo(int client, int packageIndex, bool viewInShop = false)
-{
-    SelectedPackage[client] = packageIndex;
-
-    Menu menu = new Menu(ShowPackageInfoM);
-    char item[600];
-    char temp[200];
-
-    GetPartString(packageIndex, "name", temp, sizeof(temp), TYPE_PACKAGE);
-    Format(item, sizeof(item), "패키지 정보:\n -  이름: %s", temp);
-
-    GetPartString(packageIndex, "description", temp, sizeof(temp), TYPE_PACKAGE);
-    Format(item, sizeof(item), "%s\n - 설명: %s", item, temp);
-
-    GetPartString(packageIndex, "ability_description", temp, sizeof(temp), TYPE_PACKAGE);
-    Format(item, sizeof(item), "%s\n - 능력 설명: %s", item, temp);
-
-    // GetPartString(packageIndex, "ability_description", temp, sizeof(temp), TYPE_PACKAGE);
-    Format(item, sizeof(item), "%s\n - 가격: %d", item, GetPackageMoney(packageIndex));
-
-    if(viewInShop)
-    {
-        Format(item, sizeof(item), "%s\n 구매할 시 현재 가지고 있는 머니에서 차감됩니다.\n계속하시겠습니까?", item);
-        menu.AddItem("....", "네, 구매하겠습니다.");
-    }
-    menu.SetTitle(item);
-    SetMenuExitButton(menu, true);
-    menu.Display(client, 90);
-}
-
-public int ShowPackageInfoM(Menu menu, MenuAction action, int client, int item)
-{
-    switch(action)
-    {
-        case MenuAction_End:
-        {
-            CloseHandle(menu);
-        }
-
-        case MenuAction_Select:
-        {
-            int money = GetClientMoney(client);
-            if(money >= GetPackageMoney(SelectedPackage[client]))
+            ReplaceString(key, sizeof(key), "part", "");
+            if(IsValidPart((part = StringToInt(key))))
             {
-                SetClientMoney(client, money - GetPackageMoney(SelectedPackage[client]))
-                ChoosePackage(client, SelectedPackage[client]);
-            }
-            else
-            {
-                CPrintToChat(client, "{yellow}[CP]{default} "); // 머니 부족
+                if((isBoss && CanUsePartBoss(part))
+                || (!isBoss && CanUsePartClass(part, class))
+                )
+                {
+                    parts[count++] = part;
+                }
             }
         }
     }
+    while(KvGotoNextKey(clonedHandle));
+
+    return parts[GetRandomInt(0, count-1)];
 }
 
-void ChoosePackage(int client, int packageIndex)
+PropRank RandomPartRank()
 {
-    char keyV[100][15]; // TODO: 커스터마이즈
-    char temp[300];
-    int partList[100];
-    int count=0;
+    int ranklist[4];
+    ranklist[0] = 45;
+    ranklist[1] = 30;
+    ranklist[2] = 20;
+    ranklist[3] = 10;
 
-    GetPartString(packageIndex, "parts", temp, sizeof(temp), TYPE_PACKAGE);
-    ExplodeString(temp, ";", keyV, 100, 15);
+    int total = ranklist[0] + ranklist[1] + ranklist[2] + ranklist[3];
+    total -= GetRandomInt(0, total);
 
-    while((partList[count] = StringToInt(partList[count])) > 0)
-        count++;
+    PropRank rank;
 
-    int random = GetRandomInt(0, count);
-
-    // partList[random] is answer.
-
-}
-
-void Player_Backpack(int client)
-{
-    char item[PLATFORM_MAX_PATH];
-    Menu menu = new Menu(Command_PlayerBackpackM);
-
-    menu.SetTitle("%t", "part_backpack_title");
-    Format(item, sizeof(item), "%t", "part_partbackpack");
-    menu.AddItem("partbackpack.", item);
-    Format(item, sizeof(item), "%t", "part_packagebackpack");
-    menu.AddItem("packagebackpack.", item);
-    SetMenuExitButton(menu, true);
-    menu.Display(client, 90);
-}
-
-public int Command_PlayerBackpackM(Menu menu, MenuAction action, int client, int item)
-{
-    switch(action)
+    for(int count; count<sizeof(count); count++)
     {
-        case MenuAction_End:
+        total -= ranklist[count];
+
+        if(total <= 0)
         {
-          CloseHandle(menu);
-        }
-        case MenuAction_Select:
-        {
-            switch(param2)
-            {
-              case 0: // 파츠 보관함
-              {
-                  Player_PartBackpack(param1);
-              }
-              case 1: // 패키지 보관함
-              {
-                  Player_PackageBackpack(param1);
-              }
-            }
-        }
-    }
-}
-
-void Player_PartBackpack(int client, bool selectforslot = false)
-{
-    char item[PLATFORM_MAX_PATH];
-    Menu menu = new Menu(Command_PlayerPartBackpackM);
-
-    menu.SetTitle("%t", "part_partbackpack_title");
-    Format(item, sizeof(item), "%t", "part_temp");
-    menu.AddItem("....", item);
-    SetMenuExitButton(menu, true);
-    menu.Display(client, 90);
-}
-
-public int Command_PlayerPartBackpackM(Menu menu, MenuAction action, int param1, int param2)
-{
-    switch(action)
-    {
-        case MenuAction_End:
-        {
-          CloseHandle(menu);
-        }
-    }
-}
-
-void Player_PackageBackpack(int client)
-{
-    char item[PLATFORM_MAX_PATH];
-    Menu menu = new Menu(Command_PlayerPackageBackpackM, MenuAction_Display);
-
-    menu.SetTitle("%t", "part_partbackpack_title");
-    Format(item, sizeof(item), "%t", "part_temp");
-    menu.AddItem("....", item);
-    SetMenuExitButton(menu, true);
-    menu.Display(client, 90);
-}
-
-public int Command_PlayerPackageBackpackM(Menu menu, MenuAction action, int param1, int param2)
-{
-    switch(action)
-    {
-        case MenuAction_End:
-        {
-          CloseHandle(menu);
-        }
-    }
-}
-
-int GetPackageMoney(int packageIndex)
-{
-    KvRewind(PartKV);
-
-    char item[30];
-    Format(item, sizeof(item), "package%i", packageIndex);
-
-    KvJumpToKey(PartKV, item);
-    return KvGetNum(PartKV, "money", 0);
-}
-
-int GetClientMoney(int client)
-{
-    char temp[50];
-    Handle CustomPartCookie = RegClientCookie("custompart_money", "?", CookieAccess_Protected);
-
-    GetClientCookie(client, CustomPartCookie, temp, sizeof(temp));
-    return StringToInt(temp);
-}
-
-void SetClientMoney(int client, int money)
-{
-    char temp[50];
-    Handle CustomPartCookie = RegClientCookie("custompart_money", "?", CookieAccess_Protected);
-
-    Format(temp, sizeof(temp), "%i", money);
-    SetClientCookie(client, CustomPartCookie, temp);
-}
-
-int GetClientPartSlot(int client, int slot)
-{
-    if(g_iMaxPartSlot >= slot || slot < 0)
-      return 0;
-
-    char temp[50];
-    Format(temp, sizeof(temp), "custompart_slot_%i", slot);
-
-    Handle CustomPartCookie = RegClientCookie(temp, "?", CookieAccess_Protected);
-    GetClientCookie(client, CustomPartCookie, temp, sizeof(temp));
-
-    return StringToInt(temp);
-}
-
-void SetClientPartSlot(int client, int slot, int partIndex)
-{
-  char temp[50];
-  Format(temp, sizeof(temp), "custompart_slot_%i", slot);
-
-  Handle CustomPartCookie = RegClientCookie(temp, "?", CookieAccess_Protected);
-  Format(temp, sizeof(temp), "%i", slot);
-
-  SetClientCookie(client, CustomPartCookie, temp);
-}
-
-public bool GetPartString(int partIndex, const char[] name, char[] partStr, int buffer, PartType type = TYPE_PART)
-{
-    if(!IsValidPart(partIndex, type)) // TODO: IS THIS NEEDED???
-    {
-      Format(name, buffer, "");
-      return false;
-    }
-
-    char item[50];
-    Format(temp, sizeof(temp), "%s%i", type == TYPE_PACKAGE ? "package" : "part", partIndex);
-
-    KvRewind(PartKV);
-
-    KvJumpToKey(PartKV, item);
-    KvGetString(PartKV, name, partStr, buffer);
-
-    return true;
-}
-
-void
-
-public int GetClientParts(int client, int[] parts)
-{
-  char temp[50];
-  Handle CustomPartCookie;
-  int partIndex;
-
-  int backpackSize;
-  for(backpackSize=0; backpackSize < sizeof(parts); backpackSize++)
-  {
-    Format(temp, sizeof(temp), "custompart_backpack_%i", backpackSize);
-    CustomPartCookie = RegClientCookie(temp, "?", CookieAccess_Protected);
-
-    GetClientCookie(client, CustomPartCookie, temp, sizeof(temp));
-    partIndex = StringToInt(temp);
-
-    parts[backpackSize] = partIndex;
-/*
-    if(!IsValidPart(partIndex))
-        break;
-*/
-  }
-
-  return backpackSize;
-}
-
-int GetClientPartCount(int client)
-{
-    char temp[50];
-    Handle CustomPartCookie;
-
-    for(int backpackSize=0; ; backpackSize++)
-    {
-        Format(temp, sizeof(temp), "custompart_backpack_%i", backpackSize);
-        CustomPartCookie = RegClientCookie(temp, "?", CookieAccess_Protected);
-
-        GetClientCookie(client, CustomPartCookie, temp, sizeof(temp));
-
-        if(StringToInt(temp) <= 0)
-            return backpackSize;
-    }
-
-    return -1;
-}
-
-public void SoftClientParts(int client)
-{
-    int parts[GetClientPartCount(client)];
-    int tempParts[sizeof(parts)]; // TODO: IS THIS NEEDED!?!?!?!?
-    int notValidParts[sizeof(parts)];
-    int notValidCount=0;
-
-    for(int ser=0; ser < sizeof(parts); ser++)
-    {
-        tempParts[ser] = parts[ser];
-
-        if(!IsValidPart(parts[ser]))
-        {
-            notValidParts[notValidCount++] = ser;
+            if(count == 0)  rank = Rank_Normal;
+            else if(count == 1) rank = Rank_Rare;
+            else if(count == 2) rank = Rank_Hero;
+            else if(count == 3) rank = Rank_Legend;
         }
     }
 
-    for(int cou = 0; cou < notValidCount; cou++)
+    return rank;
+}
+
+int FindActiveSlots(int client)
+{
+    for(int i = 0;  i < MaxPartSlot[client]; i++)
     {
-        for(int ser = notValidParts[cou]; ser < sizeof(parts); ser++)
-        {
-            if(ser+1 < 0 || ser+1 >= sizeof(parts))
-                continue;
-
-            if(IsValidPart(parts[ser+1]))
-                tempParts[ser] = parts[ser+1];
-        }
+        if(ActivedPartSlotArray[client].Get(slot) == 0)
+            return i;
     }
+    return 0;
+}
 
-    for(int ser=0; ser < sizeof(parts); ser++)
+int GetPlayerPartslot(int client, int slot)
+{
+    return ActivedPartSlotArray[client].Get(slot);
+}
+
+void SetPlayerPartSlot(int client, int slot, int value, bool reset)
+{
+
+    ActivedPartSlotArray[client].Set(slot, value);
+    if(reset)
     {
-        parts[ser] = tempParts[ser];
+        ActivedPartSlotArray[client].Clear();
     }
-
-    SetClientParts(client, parts);
+    ActivedPartSlotArray[client].Resize(MaxPartSlot[client]);
 }
 
-void SetClientParts(int client, int[] parts)
-{
-  char temp[50];
-  Handle CustomPartCookie;
-
-  for(int backpackSize=0; backpackSize < sizeof(parts); backpackSize++)
-  {
-    Format(temp, sizeof(temp), "custompart_backpack_%i", backpackSize);
-    CustomPartCookie = RegClientCookie(temp, "?", CookieAccess_Protected);
-
-    Format(temp, sizeof(temp), "%i", parts[backpackSize]);
-    SetClientCookie(client, CustomPartCookie, temp);
-  }
-}
-
-int GetClientBackpackAdditionalSize(int client)
-{
-    Handle CustomPartCookie = RegClientCookie("custompart_backpacksize", "?", CookieAccess_Protected);
-    char temp[20];
-    GetClientCookie(client, CustomPartCookie, temp, sizeof(temp));
-
-    return StringToInt(temp);
-}
-
-void SetClientBackpackAdditionalSize(int client, int size)
-{
-    Handle CustomPartCookie = RegClientCookie("custompart_backpacksize", "?", CookieAccess_Protected);
-    char temp[20];
-
-    Format(temp, sizeof(temp), "%i", size);
-    SetClientCookie(client, CustomPartCookie, temp);
-}
-
-int GetClientPartSlotCooldownTime(int client, int slot)
-{
-  char temp[75];
-  Format(temp, sizeof(temp), "custompart_slot_cooldown_%i", slot);
-
-  Handle CustomPartCookie = RegClientCookie(temp, "?", CookieAccess_Protected);
-  GetClientCookie(client, CustomPartCookie, temp, sizeof(temp));
-
-  return StringToInt(temp);
-}
-
-void SetClientPartSlotCooldownTime(int client, int slot, int min)
-{
-  char temp[75];
-  Format(temp, sizeof(temp), "custompart_slot_cooldown_%i", slot);
-
-  Handle CustomPartCookie = RegClientCookie(temp, "?", CookieAccess_Protected);
-  if(min>0)
-    Format(temp, sizeof(temp), "%i", GetTime()+(min*60));
-  else
-    temp = "";
-
-  SetClientCookie(client, CustomPartCookie, temp);
-}
-
-bool IsValidPart(int partIndex, PartType type = TYPE_PART)
+bool IsValidPart(int partIndex)
 {
     KvRewind(PartKV);
 
     char temp[30];
-    Format(temp, sizeof(temp), "%s%i", type == TYPE_PACKAGE ? "package" : "part", partIndex);
+    Format(temp, sizeof(temp), "part%i", partIndex);
 
     if(KvJumpToKey(PartKV, temp))
         return true;
 
+    return false;
+}
+
+PropRank GetPartRank(int partIndex)
+{
+    if(IsValidPart(partIndex))
+    {
+        return view_as<PropRank>(KvGetNum(PartKV, "rank"));
+    }
+
+    return Rank_Normal;
+}
+
+int GetPartPropInfo(int prop, PartInfo partinfo)
+{
+    int find = view_as<int>(partinfo);
+
+    char propName[150];
+    char partIndexString[3][50];
+    char temp[2][32];
+
+    GetEntPropString(prop, Prop_Send, "m_iName", propName, sizeof(propName));
+
+    ExplodeString(propName, "?", partIndexString, sizeof(partIndexString), sizeof(partIndexString[]));
+    ExplodeString(partIndexString[find], "=", temp, sizeof(temp), sizeof(temp[]));
+
+    return StringToInt(temp[1]);
+}
+
+void SetPartPropInfo(int prop, PartInfo partinfo, int value, bool changeModel = false)
+{
+    int find = view_as<int>(partinfo);
+
+    char propName[150];
+    char partIndexString[3][50];
+    char temp[2][50];
+
+    GetEntPropString(prop, Prop_Send, "m_iName", propName, sizeof(propName));
+
+    ExplodeString(propName, "?", partIndexString, sizeof(partIndexString), sizeof(partIndexString[]));
+    ExplodeString(partIndexString[find], "=", temp, sizeof(temp), sizeof(temp[]));
+
+    Format(temp[1], sizeof(temp[]), "%i", value);
+    StrCat(temp[0], sizeof(temp[]), temp[1]);
+    strcopy(partIndexString[find], sizeof(partIndexString), temp[0]);
+    ImplodeStrings(partIndexString, sizeof(partIndexString), "?", propName, sizeof(propName));
+
+    SetEntPropString(prop, Prop_Send, "m_iName", propName);
+
+    if(changeModel)
+    {
+        char model[PLATFORM_MAX_PATH];
+        GetPartModelString(view_as<PropRank>(GetPartPropInfo(prop, Info_Rank)), model);
+
+        SetEntityModel(prop, model);
+    }
+}
+
+bool CanUsePartBoss(int partIndex)
+{
+    if(IsValidPart(partIndex))
+    {
+        return KvGetNum(PartKV, "able_to_boss", 0) > 0;
+    }
+    return false;
+}
+
+bool CanUseSystemBoss()
+{
+    Handle clonedHandle = CloneHandle(PartKV);
+    KvRewind(clonedHandle);
+    char key[20];
+
+    do
+    {
+        KvGetSectionName(clonedHandle, key, sizeof(key));
+        if(!StrContains(key, "part"))
+        {
+            ReplaceString(key, sizeof(key), "part", "");
+            if(IsValidPart(StringToInt(key)))
+            {
+                if(KvGetNum(PartKV, "able_to_boss", 0) > 0)
+                    return true;
+            }
+        }
+    }
+    while(KvGotoNextKey(clonedHandle));
+    return false;
+}
+
+bool CanUsePartClass(int partIndex, TFClassType class)
+{
+    char classnames[][] = {"", "scout", "sniper", "soldier", "demoman", "medic", "heavy", "pyro", "spy", "engineer"};
+    char classes[80];
+    if(IsValidPart(partIndex))
+    {
+        KvGetString(PartKV, "able_to_class", classes, sizeof(classes));
+        if(classes[0] == '\0')
+            return true;
+
+        else if(!StrContains(classes, classnames[view_as<int>(class)]))
+            return true;
+    }
+    return false;
+}
+
+bool CanUseSystemClass(TFClassType class)
+{
+    char classnames[][] = {"", "scout", "sniper", "soldier", "demoman", "medic", "heavy", "pyro", "spy", "engineer"};
+    char classes[80];
+    char key[20];
+
+    Handle clonedHandle = CloneHandle(PartKV);
+    KvRewind(clonedHandle);
+
+    do
+    {
+        KvGetSectionName(clonedHandle, key, sizeof(key));
+        if(!StrContains(key, "part"))
+        {
+            ReplaceString(key, sizeof(key), "part", "");
+            if(IsValidPart(StringToInt(key)))
+            {
+                KvGetString(PartKV, "able_to_class", classes, sizeof(classes));
+                if(classes[0] == '\0')
+                    return true;
+
+                else if(!StrContains(classes, classnames[view_as<int>(class)]))
+                    return true;
+            }
+        }
+    }
+    while(KvGotoNextKey(clonedHandle));
     return false;
 }
 
@@ -673,10 +522,6 @@ void CheckPartConfigFile()
     CloseHandle(PartKV);
     PartKV = INVALID_HANDLE;
   }
-
-  //
-
-  //
 
   char config[PLATFORM_MAX_PATH];
   BuildPath(Path_SM, config, sizeof(config), "configs/custompart.cfg");
@@ -694,19 +539,264 @@ void CheckPartConfigFile()
     SetFailState("[CP] configs/custompart.cfg is broken?!");
   }
 
+  // MaxEnablePartCount = 0;
   KvRewind(PartKV);
-  g_iMaxPartSlot = KvGetNum(PartKV, "able_slot", 2);
-  g_iMaxEnablePartCount = 0;
-
-  char key[30];
-  do
+  if(KvJumpToKey(PartKV, "setting"))
   {
-      Format(key, sizeof(key), "part%i", ++g_iMaxEnablePartCount); // TODO: Make sure g_iMaxEnablePartCount.....
+      MaxPartGlobalSlot = KvGetNum(PartKV, "able_slot", 1);
+
+      char key[PLATFORM_MAX_PATH];
+      char path[PLATFORM_MAX_PATH];
+      // char downloadPath[PLATFORM_MAX_PATH];
+      char modelExtensions[][]={".mdl", ".dx80.vtx", ".dx90.vtx", ".sw.vtx", ".vvd"};
+      char matExtensions[][]={".vmt", ".vtf"};
+      char rankExtensions[][]={"normal", "rare", "hero", "legend", "another"};
+      // char modelMat[][]={"model", "mat"};
+
+      for(int count=0; count < sizeof(rankExtensions); count++)
+      {
+          Format(key, sizeof(key), "part_%s_model", rankExtensions[count]);
+
+          for(int i=0; i<sizeof(modelExtensions); i++)
+          {
+              KvGetString(PartKV, key, path, sizeof(path));
+              Format(path, sizeof(path), "%s%s", path, modelExtensions[i]);
+              if(FileExists(path, true))
+              {
+                  AddFileToDownloadsTable(path);
+                  PrecacheModel(path);
+              }
+          }
+
+          Format(key, sizeof(key), "part_%s_mat", rankExtensions[count]);
+
+          for(int i=0; i<sizeof(matExtensions); i++)
+          {
+              KvGetString(PartKV, key, path, sizeof(path));
+              Format(path, sizeof(path), "%s%s", path, matExtensions[i]);
+              if(FileExists(path, true))
+              {
+                  AddFileToDownloadsTable(path);
+              }
+          }
+
+      }
   }
-  while(KvJumpToKey(PartKV, key));
+}
+
+public void GetPartRankColor(PartRank rank, int colors[4])
+{
+    switch(rank)
+    {
+      case Rank_Rare:
+      {
+          colors[0] = 0;
+          colors[1] = 84;
+          colors[2] = 255;
+      }
+      case Rank_Hero:
+      {
+          colors[0] = 131;
+          colors[1] = 36;
+          colors[2] = 255;
+      }
+      case Rank_Legend:
+      {
+          colors[0] = 255;
+          colors[1] = 187;
+          colors[2] = 0;
+      }
+      case Rank_Another:
+      {
+          colors[0] = 34;
+          colors[1] = 116;
+          colors[2] = 28;
+      }
+      default:
+      {
+          colors[0] = 255;
+          colors[1] = 255;
+          colors[2] = 255;
+      }
+    }
+    colors[3] = 255;
+}
+
+public void GetPartModelString(PartRank partRank, char[] model)
+{
+    KvRewind(PartKV);
+    if(KvJumpToKey(PartKV, "setting"))
+    {
+        int rank = view_as<int>(partRank);
+        char path[PLATFORM_MAX_PATH];
+        char rankExtensions[][]={"normal", "rare", "hero", "legend", "another"};
+
+        Format(path, sizeof(path), "part_%s_model", rankExtensions[rank]);
+        KvGetString(PartKV, path, path, sizeof(path));
+
+        Format(model, sizeof(model), "%s.mdl", path);
+    }
+}
+
+public Action PrecacheTimer(Handle timer)
+{
+	PrecacheThings();
+}
+
+void PrecacheThings()
+{
+	PropForTeam = view_as<TFTeam>(GetConVarInt(cvarPropForNoBossTeam));
 }
 
 stock bool IsValidClient(client)
 {
 	return (0 < client && client < MaxClients && IsClientInGame(client));
+}
+
+stock bool IsCorrectTeam(int client)
+{
+	if(PropForTeam != TFTeam_Red && PropForTeam != TFTeam_Blue)
+		return true;
+
+	return PropForTeam == TF2_GetClientTeam(client);
+}
+
+stock int IsEntityStuck(int entity) // Copied from Chdata's FFF
+{/*
+ 	float vecMin[3], vecMax[3], vecOrigin[3];
+
+    GetEntPropVector(entity, Prop_Send, "m_vecMins", vecMin);
+    GetEntPropVector(entity, Prop_Send, "m_vecMaxs", vecMax);
+    GetEntPropVector(entity, Prop_Send, "m_vecOrigin", vecOrigin);
+
+    TR_TraceHullFilter(vecOrigin, vecOrigin, vecMin, vecMax, MASK_SOLID, TraceRayPlayerOnly, entity);
+    if(TR_DidHit())
+	{
+		return TR_GetEntityIndex();
+	}
+	return -1;
+	*/
+	float vecOrigin[3], playerOrigin[3];
+	float propsize = GetConVarFloat(cvarPropSize);
+	GetEntPropVector(entity, Prop_Send, "m_vecOrigin", vecOrigin);
+
+	for(int client = 1; client <= MaxClients; client++)
+	{
+		if(IsClientInGame(client) && IsPlayerAlive(client))
+		{
+			GetEntPropVector(client, Prop_Send, "m_vecOrigin", playerOrigin);
+
+			if(CheckCollision(vecOrigin, playerOrigin, propsize))
+				return client;
+		}
+	}
+
+	return -1;
+}
+
+void KickEntity(int client, int entity)
+{
+	float clientEyeAngles[3];
+	float vecrt[3];
+	float angVector[3];
+
+	GetClientEyeAngles(client, clientEyeAngles);
+	GetAngleVectors(clientEyeAngles, angVector, vecrt, NULL_VECTOR);
+	NormalizeVector(angVector, angVector);
+
+	angVector[0] *= 1200.0;
+	angVector[1] *= 1200.0;
+	angVector[2] *= 1200.0;
+
+	TeleportEntity(entity, NULL_VECTOR, NULL_VECTOR, angVector);
+	SetEntProp(entity, Prop_Send, "m_CollisionGroup", 2);
+	// SDKHook(entity, SDKHook_PreThinkPost, OnStuckTest);
+	// CreateTimer(0.02, OnStuckTest, entity);
+}
+
+int CheckRoundState()
+{
+	switch(GameRules_GetRoundState())
+	{
+		case RoundState_Init, RoundState_Pregame:
+		{
+			return -1;
+		}
+		case RoundState_StartGame, RoundState_Preround:
+		{
+			return 0;
+		}
+		case RoundState_RoundRunning, RoundState_Stalemate:  //Oh Valve.
+		{
+			return 1;
+		}
+		default:
+		{
+			return 2;
+		}
+	}
+	return -1;  //Compiler bug-doesn't recognize 'default' as a valid catch-all
+}
+
+stock int TF2_CreateGlow(int iEnt, char strGlowColor[18])
+{
+	char strName[126], strClass[64];
+	GetEntityClassname(iEnt, strClass, sizeof(strClass));
+	Format(strName, sizeof(strName), "%s%i", strClass, iEnt);
+	DispatchKeyValue(iEnt, "targetname", strName);
+
+	char strGlowColor[18];
+	Format(strGlowColor, sizeof(strGlowColor), "%i %i %i %i", GetRandomInt(0, 255), GetRandomInt(0, 255), GetRandomInt(0, 255), GetRandomInt(180, 255));
+
+	int ent = CreateEntityByName("tf_glow");
+	DispatchKeyValue(ent, "targetname", "RainbowGlow");
+	DispatchKeyValue(ent, "target", strName);
+	DispatchKeyValue(ent, "Mode", "0");
+	DispatchKeyValue(ent, "GlowColor", strGlowColor);
+	DispatchSpawn(ent);
+
+	AcceptEntityInput(ent, "Enable");
+
+	return ent;
+}
+
+stock int TF2_HasGlow(int owner, int iEnt)
+{
+	int index = -1;
+	while ((index = FindEntityByClassname(index, "tf_glow")) != -1)
+	{
+		if (GetEntPropEnt(index, Prop_Send, "m_hTarget") == iEnt
+        && GetEntPropEnt(index, Prop_Send, "m_hOwnerEntity") == owner)
+		{
+			return index;
+		}
+	}
+
+	return -1;
+}
+
+stock void TF2_SetGlowColor(int ent, int colors[4])
+{
+    AcceptEntityInput(ent, "Disable");
+
+    char strGlowColor[18];
+	Format(strGlowColor, sizeof(strGlowColor), "%i %i %i %i", colors[0], colors[1], colors[2], colors[3]);
+
+    DispatchKeyValue(ent, "GlowColor", strGlowColor);
+    AcceptEntityInput(ent, "Enable");
+}
+
+
+stock bool CheckCollision(float cylinderOrigin[3], float colliderOrigin[3], float maxDistance)// (float cylinderOrigin[3], float colliderOrigin[3], float maxDistance, float zMin, float zMax)
+{
+/*
+	if (colliderOrigin[2] < zMin || colliderOrigin[2] > zMax)
+		return false;
+*/
+	return GetVectorDistance(cylinderOrigin, colliderOrigin) <= maxDistance;
+}
+
+stock bool IsBoss(int client)
+{
+    return FF2_GetBossIndex(client) != -1;
 }
