@@ -16,6 +16,8 @@ Core Plugin By Nopied◎
 #include <morecolors>
 #include <sdktools>
 #include <sdkhooks>
+#include <tf2>
+#include <tf2_stocks>
 #include <freak_fortress_2>
 
 #define PLUGIN_NAME "CustomPart Core"
@@ -52,6 +54,7 @@ Handle PartKV;
 Handle cvarChatCommand;
 
 int g_iChatCommand=0;
+char g_strChatCommand[42][50];
 
 int MaxPartGlobalSlot=1;
 
@@ -67,6 +70,7 @@ Handle cvarPropSize;
 int ActivedPartCount[MAXPLAYERS+1];
 int MaxPartSlot[MAXPLAYERS+1];
 ArrayList ActivedPartSlotArray[MAXPLAYERS+1];
+// ArrayList PartSlotCoolTimeArray[MAXPLAYERS+1];
 
 public void OnPluginStart()
 {
@@ -75,7 +79,9 @@ public void OnPluginStart()
   cvarPropCount = CreateConVar("cp_prop_count", "1", "생성되는 프롭 갯수, 0은 생성을 안함", _, true, 0.0);
   cvarPropVelocity = CreateConVar("cp_prop_velocity", "250.0", "프롭 생성시 흩어지는 최대 속도, 설정한 범위 내로 랜덤으로 속도가 정해집니다.", _, true, 0.0);
   cvarPropForNoBossTeam = CreateConVar("cp_prop_for_team", "2", "0 혹은 1은 제한 없음, 2는 레드팀에게만, 3은 블루팀에게만. (생성도 포함됨.)", _, true, 0.0, true, 2.0);
-  cvarPropSize = CreateConVar("cp_prop_size", "50.0", "캡슐 섭취 범위", _, true, 0.1);
+  cvarPropSize = CreateConVar("cp_prop_size", "80.0", "캡슐 섭취 범위", _, true, 0.1);
+
+  RegConsoleCmd("slot", TestSlot);
 
   AddCommandListener(Listener_Say, "say");
   AddCommandListener(Listener_Say, "say_team");
@@ -91,9 +97,20 @@ public void OnPluginStart()
 
   for(int client = 1;  client < MaxClients; client++)
   {
-    ActivedPartSlotArray[client] = ArrayList();
+    ActivedPartSlotArray[client] = new ArrayList();
+    ActivedPartSlotArray[client].Resize(MaxPartGlobalSlot);
   }
 
+}
+
+public Action TestSlot(int client, int args)
+{
+    CPrintToChatAll("%N's slot. size = %i, MaxPartSlot = %i", client, ActivedPartSlotArray[client].Length, MaxPartSlot[client]);
+
+    for(int count = 0; count < MaxPartSlot[client]; count++)
+    {
+        CPrintToChatAll("[%i] %i", count, ActivedPartSlotArray[client].Get(count));
+    }
 }
 
 public void OnMapStart()
@@ -127,6 +144,12 @@ public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
     int client = GetClientOfUserId(GetEventInt(event, "userid"));
 
     MaxPartSlot[client] = MaxPartGlobalSlot;
+    /*
+    for(int count=0; count<MaxPartSlot[client]; count++)
+    {
+        ActivedPartSlotArray[client].Set(count, );
+    }
+    */
 }
 
 public Action OnPlayerDeath(Handle event, const char[] name, bool dont)
@@ -155,6 +178,8 @@ public Action OnPlayerDeath(Handle event, const char[] name, bool dont)
 
         SpawnCustomPart(RandomPartRank(), position, velocity, IsFake);
     }
+
+    return Plugin_Continue;
 }
 
 int SpawnCustomPart(PartRank partRank, float position[3], float velocity[3], bool IsFake)
@@ -166,19 +191,23 @@ int SpawnCustomPart(PartRank partRank, float position[3], float velocity[3], boo
         char partAccount[128];
         int colors[4];
 
-        GetPartModelString(partRank, modelPath);
-        Format(partAccount, sizeof(partAccount), "partEntId=%i?partRank=%i?settingPartIndex=0", prop);
+        GetPartModelString(partRank, modelPath, sizeof(modelPath));
+        Format(partAccount, sizeof(partAccount), "partEntId=%i?partRank=%i?settingPartIndex=0", prop, view_as<int>(partRank));
+
+        Debug("생성된 파츠: %s", partAccount);
 
         SetEntityModel(prop, modelPath);
         SetEntityMoveType(prop, MOVETYPE_VPHYSICS);
         SetEntProp(prop, Prop_Send, "m_CollisionGroup", 2);
-        SetEntPropString(prop, Prop_Send, "m_iName", partAccount);
+        SetEntPropString(prop, Prop_Data, "m_iName", partAccount);
         // SetEntProp(prop, Prop_Send, "m_usSolidFlags", 16); // 0x0004
         SetEntProp(prop, Prop_Send, "m_usSolidFlags", 0x0004);
         DispatchSpawn(prop);
 
         GetPartRankColor(partRank, colors);
-        TF2_SetGlowColor(TF2_CreateGlow(prop), colors);
+
+        int glow = TF2_CreateGlow(prop);
+        TF2_SetGlowColor(glow, colors);
 
         TeleportEntity(prop, position, NULL_VECTOR, velocity);
         // TeleportEntity(prop, position, NULL_VECTOR, NULL_VECTOR);
@@ -216,15 +245,32 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
 	int client = IsEntityStuck(entity);
 	if(IsValidClient(client))
 	{
-		if((IsCorrectTeam(client) && CanUseSystemClass(TF2_GetPlayerClass(client)))
-        || (IsBoss(client) && CanUseSystemBoss(client) && view_as<PartRank>(GetPartPropInfo(entity, Info_Rank)) == Rank_Another)
+        PartRank rank = view_as<PartRank>(GetPartPropInfo(entity, Info_Rank));
+        int part;
+        int slot;
+/*
+		if(((IsCorrectTeam(client) && CanUseSystemClass(TF2_GetPlayerClass(client)))
+        || (IsBoss(client) && CanUseSystemBoss() && rank == Rank_Another))
+        ) // FIXME:
+*/
+        if(IsCorrectTeam(client)
+        || (IsBoss(client) && CanUseSystemBoss() && rank == Rank_Another)
         )
 		{
 			char centerMessage[100];
 			PrintCenterText(client, "파츠를 흭득하셨습니다!");
 
-            int part = RandomPart(client, GetPartPropInfo(entity, Info_Rank));
-            SetPlayerPartSlot(client, FindActiveSlots(client), part);
+            part = RandomPart(client, rank);
+            slot = FindActiveSlots(client);
+
+            Debug("확정된 파츠: %i, slot = %i", part, slot);
+
+            SetPlayerPartSlot(client, slot, part);
+
+            if(IsValidPart(part))
+            {
+                ViewPart(client, slot);
+            }
 
 			AcceptEntityInput(entity, "kill");
 			return Plugin_Handled;
@@ -236,6 +282,30 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
 	}
 
 	CreateTimer(0.05, OnPickup, EntIndexToEntRef(entity));
+	return Plugin_Continue;
+}
+
+public Action FakePickup(Handle timer, int entRef)
+{
+	int entity = EntRefToEntIndex(entRef);
+	if(!IsValidEntity(entity))
+		return Plugin_Handled;
+
+	int client = IsEntityStuck(entity);
+	if(IsValidClient(client))
+	{
+		if(!IsCorrectTeam(client))
+		{
+			KickEntity(client, entity);
+		}
+		else
+		{
+			AcceptEntityInput(entity, "kill");
+			return Plugin_Handled;
+		}
+	}
+
+	CreateTimer(0.05, FakePickup, EntIndexToEntRef(entity));
 	return Plugin_Continue;
 }
 
@@ -274,14 +344,14 @@ public Action Listener_Say(int client, const char[] command, int argc)
 
 }
 
-void ViewPartMenu(int client)
+void ViewPart(int client, int slot)
 {
 
 }
 
 int RandomPart(int client, PartRank rank)
 {
-    int[] parts;
+    ArrayList parts = new ArrayList();
     int count = 0;
     int part;
 
@@ -300,21 +370,41 @@ int RandomPart(int client, PartRank rank)
             ReplaceString(key, sizeof(key), "part", "");
             if(IsValidPart((part = StringToInt(key))))
             {
-                if((isBoss && CanUsePartBoss(part))
-                || (!isBoss && CanUsePartClass(part, class))
+                if(((isBoss && CanUsePartBoss(part))
+                || (!isBoss && CanUsePartClass(part, class)))
+                && GetPartRank(part) == rank
                 )
                 {
-                    parts[count++] = part;
+                    parts.Set(count++, part);
                 }
             }
         }
     }
     while(KvGotoNextKey(clonedHandle));
 
-    return parts[GetRandomInt(0, count-1)];
+    SetRandomSeed(GetTime());
+    int answer;
+
+    if(count <= 0)
+    {
+        parts.Close();
+
+        int integerRank = view_as<int>(rank);
+        if(--integerRank < 0)
+            return 0;
+
+        answer = RandomPart(client, view_as<PartRank>(integerRank));
+    }
+    else
+    {
+        answer = parts.Get(GetRandomInt(0, count-1));
+    }
+    parts.Close();
+
+    return answer;
 }
 
-PropRank RandomPartRank()
+PartRank RandomPartRank()
 {
     int ranklist[4];
     ranklist[0] = 45;
@@ -322,16 +412,19 @@ PropRank RandomPartRank()
     ranklist[2] = 20;
     ranklist[3] = 10;
 
+    SetRandomSeed(GetTime());
+
     int total = ranklist[0] + ranklist[1] + ranklist[2] + ranklist[3];
-    total -= GetRandomInt(0, total);
+    int winner = GetRandomInt(0, total);
+    int tempcount;
 
-    PropRank rank;
+    PartRank rank;
 
-    for(int count; count<sizeof(count); count++)
+    for(int count; count < 4; count++)
     {
-        total -= ranklist[count];
+        tempcount += ranklist[count];
 
-        if(total <= 0)
+        if(tempcount >= winner)
         {
             if(count == 0)  rank = Rank_Normal;
             else if(count == 1) rank = Rank_Rare;
@@ -345,9 +438,10 @@ PropRank RandomPartRank()
 
 int FindActiveSlots(int client)
 {
-    for(int i = 0;  i < MaxPartSlot[client]; i++)
+    ActivedPartSlotArray[client].Resize(MaxPartSlot[client]);
+    for(int i = 0;  i <= MaxPartSlot[client]; i++)
     {
-        if(ActivedPartSlotArray[client].Get(slot) == 0)
+        if(ActivedPartSlotArray[client].Get(i) == 0)
             return i;
     }
     return 0;
@@ -355,18 +449,19 @@ int FindActiveSlots(int client)
 
 int GetPlayerPartslot(int client, int slot)
 {
+    ActivedPartSlotArray[client].Resize(MaxPartSlot[client]);
     return ActivedPartSlotArray[client].Get(slot);
 }
 
-void SetPlayerPartSlot(int client, int slot, int value, bool reset)
+void SetPlayerPartSlot(int client, int slot, int value, bool reset=false)
 {
-
+    ActivedPartSlotArray[client].Resize(MaxPartSlot[client]);
     ActivedPartSlotArray[client].Set(slot, value);
+
     if(reset)
     {
         ActivedPartSlotArray[client].Clear();
     }
-    ActivedPartSlotArray[client].Resize(MaxPartSlot[client]);
 }
 
 bool IsValidPart(int partIndex)
@@ -382,14 +477,23 @@ bool IsValidPart(int partIndex)
     return false;
 }
 
-PropRank GetPartRank(int partIndex)
+PartRank GetPartRank(int partIndex)
 {
     if(IsValidPart(partIndex))
     {
-        return view_as<PropRank>(KvGetNum(PartKV, "rank"));
+        Handle clonedHandle = CloneHandle(PartKV);
+        return view_as<PartRank>(KvGetNum(clonedHandle, "rank"));
     }
 
     return Rank_Normal;
+}
+
+public void GetPartString(int partIndex, char[] key, char[] values, int bufferLength)
+{
+    if(IsValidPart(partIndex))
+    {
+        KvGetString(PartKV, key, values, bufferLength);
+    }
 }
 
 int GetPartPropInfo(int prop, PartInfo partinfo)
@@ -400,12 +504,26 @@ int GetPartPropInfo(int prop, PartInfo partinfo)
     char partIndexString[3][50];
     char temp[2][32];
 
-    GetEntPropString(prop, Prop_Send, "m_iName", propName, sizeof(propName));
+    GetEntPropString(prop, Prop_Data, "m_iName", propName, sizeof(propName));
 
     ExplodeString(propName, "?", partIndexString, sizeof(partIndexString), sizeof(partIndexString[]));
     ExplodeString(partIndexString[find], "=", temp, sizeof(temp), sizeof(temp[]));
 
     return StringToInt(temp[1]);
+}
+
+void ResizePlayerSlotArray(int client)
+{
+    int beforeSize = ActivedPartSlotArray[client].Length;
+    ActivedPartSlotArray[client].Resize(MaxPartSlot[client]);
+
+    for(int count=0; count<MaxPartSlot[client]; count++)
+    {
+        if(beforeSize <= count)
+            continue;
+
+        ActivedPartSlotArray[client].Set(count, 0);
+    }
 }
 
 void SetPartPropInfo(int prop, PartInfo partinfo, int value, bool changeModel = false)
@@ -416,7 +534,7 @@ void SetPartPropInfo(int prop, PartInfo partinfo, int value, bool changeModel = 
     char partIndexString[3][50];
     char temp[2][50];
 
-    GetEntPropString(prop, Prop_Send, "m_iName", propName, sizeof(propName));
+    GetEntPropString(prop, Prop_Data, "m_iName", propName, sizeof(propName));
 
     ExplodeString(propName, "?", partIndexString, sizeof(partIndexString), sizeof(partIndexString[]));
     ExplodeString(partIndexString[find], "=", temp, sizeof(temp), sizeof(temp[]));
@@ -426,12 +544,12 @@ void SetPartPropInfo(int prop, PartInfo partinfo, int value, bool changeModel = 
     strcopy(partIndexString[find], sizeof(partIndexString), temp[0]);
     ImplodeStrings(partIndexString, sizeof(partIndexString), "?", propName, sizeof(propName));
 
-    SetEntPropString(prop, Prop_Send, "m_iName", propName);
+    SetEntPropString(prop, Prop_Data, "m_iName", propName);
 
     if(changeModel)
     {
         char model[PLATFORM_MAX_PATH];
-        GetPartModelString(view_as<PropRank>(GetPartPropInfo(prop, Info_Rank)), model);
+        GetPartModelString(view_as<PartRank>(GetPartPropInfo(prop, Info_Rank)), model, sizeof(model));
 
         SetEntityModel(prop, model);
     }
@@ -525,6 +643,7 @@ void CheckPartConfigFile()
 
   char config[PLATFORM_MAX_PATH];
   BuildPath(Path_SM, config, sizeof(config), "configs/custompart.cfg");
+  enabled = false;
 
   if(!FileExists(config))
   {
@@ -550,7 +669,7 @@ void CheckPartConfigFile()
       // char downloadPath[PLATFORM_MAX_PATH];
       char modelExtensions[][]={".mdl", ".dx80.vtx", ".dx90.vtx", ".sw.vtx", ".vvd"};
       char matExtensions[][]={".vmt", ".vtf"};
-      char rankExtensions[][]={"normal", "rare", "hero", "legend", "another"};
+      char rankExtensions[][]={"base", "normal", "rare", "hero", "legend", "another"};
       // char modelMat[][]={"model", "mat"};
 
       for(int count=0; count < sizeof(rankExtensions); count++)
@@ -581,6 +700,7 @@ void CheckPartConfigFile()
           }
 
       }
+      enabled = true;
   }
 }
 
@@ -622,7 +742,7 @@ public void GetPartRankColor(PartRank rank, int colors[4])
     colors[3] = 255;
 }
 
-public void GetPartModelString(PartRank partRank, char[] model)
+public void GetPartModelString(PartRank partRank, char[] model, int bufferLength)
 {
     KvRewind(PartKV);
     if(KvJumpToKey(PartKV, "setting"))
@@ -634,7 +754,7 @@ public void GetPartModelString(PartRank partRank, char[] model)
         Format(path, sizeof(path), "part_%s_model", rankExtensions[rank]);
         KvGetString(PartKV, path, path, sizeof(path));
 
-        Format(model, sizeof(model), "%s.mdl", path);
+        Format(model, bufferLength, "%s.mdl", path);
     }
 }
 
@@ -738,7 +858,7 @@ int CheckRoundState()
 	return -1;  //Compiler bug-doesn't recognize 'default' as a valid catch-all
 }
 
-stock int TF2_CreateGlow(int iEnt, char strGlowColor[18])
+stock int TF2_CreateGlow(int iEnt)
 {
 	char strName[126], strClass[64];
 	GetEntityClassname(iEnt, strClass, sizeof(strClass));
@@ -775,7 +895,7 @@ stock int TF2_HasGlow(int owner, int iEnt)
 	return -1;
 }
 
-stock void TF2_SetGlowColor(int ent, int colors[4])
+stock void TF2_SetGlowColor(int ent, const int colors[4])
 {
     AcceptEntityInput(ent, "Disable");
 
