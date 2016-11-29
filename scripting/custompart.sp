@@ -69,6 +69,7 @@ Handle cvarPropSize;
 
 int ActivedPartCount[MAXPLAYERS+1];
 int MaxPartSlot[MAXPLAYERS+1];
+int LastSelectedSlot[MAXPLAYERS+1];
 ArrayList ActivedPartSlotArray[MAXPLAYERS+1];
 // ArrayList PartSlotCoolTimeArray[MAXPLAYERS+1];
 
@@ -97,8 +98,7 @@ public void OnPluginStart()
 
   for(int client = 1;  client < MaxClients; client++)
   {
-    ActivedPartSlotArray[client] = new ArrayList();
-    ActivedPartSlotArray[client].Resize(MaxPartGlobalSlot);
+    RefrashPartSlotArray(client, true);
   }
 
 }
@@ -263,6 +263,12 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
             part = RandomPart(client, rank);
             slot = FindActiveSlots(client);
 
+            if(part <= 0 || slot <= 0)
+            {
+                KickEntity(client, entity);
+                return Plugin_Continue;
+            }
+
             Debug("확정된 파츠: %i, slot = %i", part, slot);
 
             SetPlayerPartSlot(client, slot, part);
@@ -311,7 +317,6 @@ public Action FakePickup(Handle timer, int entRef)
 
 public Action Listener_Say(int client, const char[] command, int argc)
 {
-    /*
 	if(!IsValidClient(client)) return Plugin_Continue;
 
 	char strChat[100];
@@ -334,19 +339,96 @@ public Action Listener_Say(int client, const char[] command, int argc)
 				return Plugin_Handled;
 			}
 
-			ViewPartMenu(client);
+			ViewPart(client);
 			return Plugin_Handled;
 		}
 	}
-    */
+
 
 	return Plugin_Continue;
 
 }
 
-void ViewPart(int client, int slot)
+void ViewPart(int client, int slot=0)
 {
+    if(IsValidSlot(client, slot))
+    {
+        int part;
 
+        if(!IsValidPart(part = GetPlayerPartslot(client, slot)))
+            part = INVALID_PARTID;
+
+        Menu menu = new Menu(OnSelectedSlotItem);
+        menu.SetTitle("현재 파츠: (슬릇: %i / %i)", slot, MaxPartSlot[client]);
+
+        char item[200];
+        GetPartString(part, "name", item, sizeof(item));
+        Format(item, sizeof(item), "이름: %s", item);
+        menu.AddItem("name", item, ITEMDRAW_DISABLED|ITEMDRAW_RAWLINE);
+
+        GetPartString(part, "description", item, sizeof(item));
+        Format(item, sizeof(item), "설명: %s", item);
+        menu.AddItem("description", item, ITEMDRAW_DISABLED|ITEMDRAW_RAWLINE);
+
+        GetPartString(part, "ability_description", item, sizeof(item));
+        Format(item, sizeof(item), "능력 설명: %s", item);
+        menu.AddItem("ability_description", item, ITEMDRAW_DISABLED|ITEMDRAW_RAWLINE);
+
+        int itemFlags;
+        if(slot - 1 < 0)
+            Format(item, sizeof(item), "이전 슬릇으로");
+        else
+        {
+            itemFlags = ITEMDRAW_DISABLED | ITEMDRAW_RAWLINE;
+            Format(item, sizeof(item), "이전 슬릇이 없습니다.");
+        }
+        menu.AddItem("older", item, itemFlags);
+
+        itemFlags = 0;
+
+        if(slot + 1 > MaxPartSlot[client])
+            Format(item, sizeof(item), "다음 슬릇으로");
+        else
+        {
+            itemFlags = ITEMDRAW_DISABLED | ITEMDRAW_RAWLINE;
+            Format(item, sizeof(item), "다음 슬릇이 없습니다.");
+        }
+        menu.AddItem("newer", item, itemFlags);
+        menu.ExitButton = true;
+
+        LastSelected[client] = slot;
+
+        menu.Display(client, 40);
+    }
+}
+
+public int OnSelectedSlotItem(Menu menu, MenuAction action, int client, int item)
+{
+    switch(action)
+    {
+      case MenuAction_End:
+      {
+          menu.Close();
+      }
+      case MenuAction_Select:
+      {
+          switch(item)
+          {
+              case 3:
+              {
+                menu.Close();
+                ViewPart(client, LastSelected[client]-1);
+              }
+              case 4:
+              {
+                menu.Close();
+                ViewPart(client, LastSelected[client]+1);
+              }
+
+
+          }
+      }
+    }
 }
 
 int RandomPart(int client, PartRank rank)
@@ -370,6 +452,8 @@ int RandomPart(int client, PartRank rank)
             ReplaceString(key, sizeof(key), "part", "");
             if(IsValidPart((part = StringToInt(key))))
             {
+                if(part <= 0) continue;
+
                 if(((isBoss && CanUsePartBoss(part))
                 || (!isBoss && CanUsePartClass(part, class)))
                 && GetPartRank(part) == rank
@@ -430,6 +514,8 @@ PartRank RandomPartRank()
             else if(count == 1) rank = Rank_Rare;
             else if(count == 2) rank = Rank_Hero;
             else if(count == 3) rank = Rank_Legend;
+
+            break;
         }
     }
 
@@ -438,10 +524,10 @@ PartRank RandomPartRank()
 
 int FindActiveSlots(int client)
 {
-    ActivedPartSlotArray[client].Resize(MaxPartSlot[client]);
+    RefrashPartSlotArray(client);
     for(int i = 0;  i <= MaxPartSlot[client]; i++)
     {
-        if(ActivedPartSlotArray[client].Get(i) == 0)
+        if(ActivedPartSlotArray[client].Get(i) == -1)
             return i;
     }
     return 0;
@@ -449,18 +535,56 @@ int FindActiveSlots(int client)
 
 int GetPlayerPartslot(int client, int slot)
 {
-    ActivedPartSlotArray[client].Resize(MaxPartSlot[client]);
-    return ActivedPartSlotArray[client].Get(slot);
+    RefrashPartSlotArray(client);
+    if(IsValidSlot(client, slot))
+        return ActivedPartSlotArray[client].Get(slot);
+
+    return INVALID_PARTID;
 }
 
-void SetPlayerPartSlot(int client, int slot, int value, bool reset=false)
+void SetPlayerPart(int client, int slot, int value, bool reset=false)
 {
-    ActivedPartSlotArray[client].Resize(MaxPartSlot[client]);
+    RefrashPartSlotArray(client);
+
+    if(!IsValidSlot(client, slot)) return;
+
     ActivedPartSlotArray[client].Set(slot, value);
 
     if(reset)
     {
         ActivedPartSlotArray[client].Clear();
+    }
+}
+
+void RefrashPartSlotArray(int client, bool setup = false)
+{
+    if(setup)
+    {
+        ActivedPartSlotArray[client] = new ArrayList(MaxPartSlot[client], MaxPartSlot[client]);
+        return;
+    }
+
+    // TODO: 개적화 해결
+
+    int beforeSize = ActivedPartSlotArray[client].Length;
+    int beforeCell[beforeSize];
+
+    for(int count=0; count<beforeSize; count++)
+    {
+        beforeCell[count] = GetPlayerPartslot(client, count);
+
+        if(beforeCell[count] == 0)
+            beforeCell[count] = INVALID_PARTID;
+    }
+
+    ActivedPartSlotArray[client].Close();
+
+    ActivedPartSlotArray[client] = new ArrayList(MaxPartSlot[client], MaxPartSlot[client]);
+
+    for(int count=0; count<beforeSize; count++)
+    {
+        ActivedPartSlotArray[client].Push(beforeCell[count]);
+        Debug("%N: [%i] %i", client, count, beforeCell[count]);
     }
 }
 
@@ -472,6 +596,14 @@ bool IsValidPart(int partIndex)
     Format(temp, sizeof(temp), "part%i", partIndex);
 
     if(KvJumpToKey(PartKV, temp))
+        return true;
+
+    return false;
+}
+
+bool IsValidSlot(int client, int slot)
+{
+    if(MaxPartSlot[client] > slot)
         return true;
 
     return false;
@@ -490,7 +622,11 @@ PartRank GetPartRank(int partIndex)
 
 public void GetPartString(int partIndex, char[] key, char[] values, int bufferLength)
 {
-    if(IsValidPart(partIndex))
+    if(partIndex == -1)
+    {
+        Format(values, bufferLength, "비어있음!");
+    }
+    else if(IsValidPart(partIndex))
     {
         KvGetString(PartKV, key, values, bufferLength);
     }
@@ -510,20 +646,6 @@ int GetPartPropInfo(int prop, PartInfo partinfo)
     ExplodeString(partIndexString[find], "=", temp, sizeof(temp), sizeof(temp[]));
 
     return StringToInt(temp[1]);
-}
-
-void ResizePlayerSlotArray(int client)
-{
-    int beforeSize = ActivedPartSlotArray[client].Length;
-    ActivedPartSlotArray[client].Resize(MaxPartSlot[client]);
-
-    for(int count=0; count<MaxPartSlot[client]; count++)
-    {
-        if(beforeSize <= count)
-            continue;
-
-        ActivedPartSlotArray[client].Set(count, 0);
-    }
 }
 
 void SetPartPropInfo(int prop, PartInfo partinfo, int value, bool changeModel = false)
