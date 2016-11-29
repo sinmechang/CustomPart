@@ -95,12 +95,6 @@ public void OnPluginStart()
 
   HookEvent("player_spawn", OnPlayerSpawn);
   HookEvent("player_death", OnPlayerDeath);
-
-  for(int client = 1;  client < MaxClients; client++)
-  {
-    RefrashPartSlotArray(client, true);
-  }
-
 }
 
 public Action TestSlot(int client, int args)
@@ -134,9 +128,9 @@ void ChangeChatCommand()
 	}
 }
 
-public void OnClientPutInServer(int client)
+public void OnClientConnected(int client)
 {
-
+    RefrashPartSlotArray(client, true);
 }
 
 public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
@@ -271,7 +265,7 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
 
             Debug("확정된 파츠: %i, slot = %i", part, slot);
 
-            SetPlayerPartSlot(client, slot, part);
+            SetPlayerPart(client, slot, part);
 
             if(IsValidPart(part))
             {
@@ -355,7 +349,7 @@ void ViewPart(int client, int slot=0)
     {
         int part;
 
-        if(!IsValidPart(part = GetPlayerPartslot(client, slot)))
+        if(!IsValidPart((part = GetPlayerPartslot(client, slot))))
             part = INVALID_PARTID;
 
         Menu menu = new Menu(OnSelectedSlotItem);
@@ -396,7 +390,7 @@ void ViewPart(int client, int slot=0)
         menu.AddItem("newer", item, itemFlags);
         menu.ExitButton = true;
 
-        LastSelected[client] = slot;
+        LastSelectedSlot[client] = slot;
 
         menu.Display(client, 40);
     }
@@ -417,12 +411,12 @@ public int OnSelectedSlotItem(Menu menu, MenuAction action, int client, int item
               case 3:
               {
                 menu.Close();
-                ViewPart(client, LastSelected[client]-1);
+                ViewPart(client, LastSelectedSlot[client]-1);
               }
               case 4:
               {
                 menu.Close();
-                ViewPart(client, LastSelected[client]+1);
+                ViewPart(client, LastSelectedSlot[client]+1);
               }
 
 
@@ -535,7 +529,7 @@ int FindActiveSlots(int client)
 
 int GetPlayerPartslot(int client, int slot)
 {
-    RefrashPartSlotArray(client);
+    // RefrashPartSlotArray(client);
     if(IsValidSlot(client, slot))
         return ActivedPartSlotArray[client].Get(slot);
 
@@ -560,18 +554,18 @@ void RefrashPartSlotArray(int client, bool setup = false)
 {
     if(setup)
     {
-        ActivedPartSlotArray[client] = new ArrayList(MaxPartSlot[client], MaxPartSlot[client]);
+        ActivedPartSlotArray[client] = new ArrayList(10, 10);
         return;
     }
 
     // TODO: 개적화 해결
 
     int beforeSize = ActivedPartSlotArray[client].Length;
-    int beforeCell[beforeSize];
+    int[] beforeCell = new int[beforeSize]
 
     for(int count=0; count<beforeSize; count++)
     {
-        beforeCell[count] = GetPlayerPartslot(client, count);
+        beforeCell[count] = ActivedPartSlotArray[client].Get(count);
 
         if(beforeCell[count] == 0)
             beforeCell[count] = INVALID_PARTID;
