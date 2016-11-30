@@ -19,6 +19,7 @@ Core Plugin By Nopied◎
 #include <tf2>
 #include <tf2_stocks>
 #include <freak_fortress_2>
+#include <custompart>
 
 #define PLUGIN_NAME "CustomPart Core"
 #define PLUGIN_AUTHOR "Nopied◎"
@@ -95,6 +96,8 @@ public void OnPluginStart()
 
   HookEvent("player_spawn", OnPlayerSpawn);
   HookEvent("player_death", OnPlayerDeath);
+
+  RegPluginLibrary("custompart");
 }
 
 public Action TestSlot(int client, int args)
@@ -130,7 +133,19 @@ void ChangeChatCommand()
 
 public void OnClientConnected(int client)
 {
-    RefrashPartSlotArray(client, true);
+    if(enabled && ActivedPartSlotArray[client] == INVALID_HANDLE)
+    {
+        RefrashPartSlotArray(client);
+    }
+}
+
+public void OnClientDisconnect(int client)
+{
+    if(ActivedPartSlotArray[client] != INVALID_HANDLE)
+    {
+        ActivedPartSlotArray[client].Close();
+        ActivedPartSlotArray[client] = INVALID_HANDLE;
+    }
 }
 
 public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
@@ -516,6 +531,11 @@ PartRank RandomPartRank()
     return rank;
 }
 
+bool IsPartActived(int client, int partIndex)
+{
+    return ActivedPartSlotArray[client].FindValue(partIndex) != -1;
+}
+
 int FindActiveSlots(int client)
 {
     RefrashPartSlotArray(client);
@@ -538,8 +558,6 @@ int GetPlayerPartslot(int client, int slot)
 
 void SetPlayerPart(int client, int slot, int value, bool reset=false)
 {
-    RefrashPartSlotArray(client);
-
     if(!IsValidSlot(client, slot)) return;
 
     ActivedPartSlotArray[client].Set(slot, value);
@@ -550,14 +568,14 @@ void SetPlayerPart(int client, int slot, int value, bool reset=false)
     }
 }
 
-void RefrashPartSlotArray(int client, bool setup = false)
+void RefrashPartSlotArray(int client)
 {
-    if(setup)
+    if(ActivedPartSlotArray[client] != INVALID_HANDLE)
     {
-        ActivedPartSlotArray[client] = new ArrayList(10, 10);
-        return;
+        ActivedPartSlotArray[client].Close();
     }
 
+    ActivedPartSlotArray[client] = new ArrayList(MaxPartSlot[client], MaxPartSlot[client]);
     // TODO: 개적화 해결
 
     int beforeSize = ActivedPartSlotArray[client].Length;
@@ -567,7 +585,7 @@ void RefrashPartSlotArray(int client, bool setup = false)
     {
         beforeCell[count] = ActivedPartSlotArray[client].Get(count);
 
-        if(beforeCell[count] == 0)
+        if(beforeCell[count] <= 0)
             beforeCell[count] = INVALID_PARTID;
     }
 
@@ -817,6 +835,17 @@ void CheckPartConfigFile()
 
       }
       enabled = true;
+  }
+
+  if(enabled)
+  {
+      for(int client = 1; client <= MaxClients; client++)
+      {
+          if(IsClientInGame(client) && ActivedPartSlotArray[client] == INVALID_HANDLE)
+          {
+              RefrashPartSlotArray(client);
+          }
+      }
   }
 }
 
