@@ -28,22 +28,6 @@ Core Plugin By Nopied◎
 
 #define INVALID_PARTID -1
 
-enum PartRank
-{
-    Rank_Normal=0,
-    Rank_Rare,
-    Rank_Hero,
-    Rank_Legend,
-    Rank_Another
-};
-
-enum PartInfo
-{
-    Info_EntId=0,
-    Info_Rank,
-    Info_CustomInfo
-};
-
 public Plugin myinfo = {
   name=PLUGIN_NAME,
   author=PLUGIN_AUTHOR,
@@ -97,7 +81,7 @@ public void OnPluginStart()
   HookEvent("player_spawn", OnPlayerSpawn);
   HookEvent("player_death", OnPlayerDeath);
 
-  RegPluginLibrary("custompart");
+  // RegPluginLibrary("custompart");
 }
 
 public Action TestSlot(int client, int args)
@@ -144,7 +128,7 @@ public void OnClientDisconnect(int client)
     if(ActivedPartSlotArray[client] != INVALID_HANDLE)
     {
         ActivedPartSlotArray[client].Close();
-        ActivedPartSlotArray[client] = INVALID_HANDLE;
+        ActivedPartSlotArray[client] = INVALID_HANDLE; // FIXME: Compiler Warning: tag mismatch.
     }
 }
 
