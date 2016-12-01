@@ -533,7 +533,7 @@ int FindActiveSlots(int client)
 
 int GetPlayerPartslot(int client, int slot)
 {
-    // RefrashPartSlotArray(client);
+    RefrashPartSlotArray(client);
     if(IsValidSlot(client, slot))
         return ActivedPartSlotArray[client].Get(slot);
 
@@ -542,6 +542,7 @@ int GetPlayerPartslot(int client, int slot)
 
 void SetPlayerPart(int client, int slot, int value, bool reset=false)
 {
+    // TODO: 슬릇 지정 불가능하게 할 것.
     if(!IsValidSlot(client, slot)) return;
 
     ActivedPartSlotArray[client].Set(slot, value);
