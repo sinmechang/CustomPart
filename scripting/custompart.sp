@@ -81,9 +81,23 @@ public void OnPluginStart()
   HookEvent("player_spawn", OnPlayerSpawn);
   HookEvent("player_death", OnPlayerDeath);
 
+  // HookEvent("teamplay_round_start", OnRoundStart);
+  // HookEvent("teamplay_round_win", OnRoundEnd);
+
   // RegPluginLibrary("custompart");
 }
+/*
+public Action OnRoundStart(Handle event, const char[] name, bool dont)
+{
 
+
+}
+
+public Action OnRoundEnd(Handle event, const char[] name, bool dont)
+{
+
+}
+*/
 public Action TestSlot(int client, int args)
 {
     CPrintToChatAll("%N's slot. size = %i, MaxPartSlot = %i", client, ActivedPartSlotArray[client].Length, MaxPartSlot[client]);
@@ -137,6 +151,7 @@ public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
     int client = GetClientOfUserId(GetEventInt(event, "userid"));
 
     MaxPartSlot[client] = MaxPartGlobalSlot;
+    RefrashPartSlotArray(client, true);
     /*
     for(int count=0; count<MaxPartSlot[client]; count++)
     {
@@ -254,7 +269,7 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
 			PrintCenterText(client, "파츠를 흭득하셨습니다!");
 
             part = RandomPart(client, rank);
-            slot = FindActiveSlots(client);
+            slot = SetPlayerPart(client, part);
 
             if(part <= 0 || slot <= 0)
             {
@@ -263,8 +278,6 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
             }
 
             Debug("확정된 파츠: %i, slot = %i", part, slot);
-
-            SetPlayerPart(client, slot, part);
 
             if(IsValidPart(part))
             {
@@ -367,6 +380,10 @@ void ViewPart(int client, int slot=0)
         Format(item, sizeof(item), "능력 설명: %s", item);
         menu.AddItem("ability_description", item, ITEMDRAW_DISABLED|ITEMDRAW_RAWLINE);
 
+        GetPartString(part, "idea_owner_nickname", item, sizeof(item));
+        Format(item, sizeof(item), "능력 설명: %s", item);
+        menu.AddItem("idea_owner_nickname", item, ITEMDRAW_DISABLED|ITEMDRAW_RAWLINE);
+
         int itemFlags;
         if(slot - 1 < 0)
             Format(item, sizeof(item), "이전 슬릇으로");
@@ -407,18 +424,16 @@ public int OnSelectedSlotItem(Menu menu, MenuAction action, int client, int item
       {
           switch(item)
           {
-              case 3:
+              case 4:
               {
                 menu.Close();
                 ViewPart(client, LastSelectedSlot[client]-1);
               }
-              case 4:
+              case 5:
               {
                 menu.Close();
                 ViewPart(client, LastSelectedSlot[client]+1);
               }
-
-
           }
       }
     }
@@ -540,20 +555,18 @@ int GetPlayerPartslot(int client, int slot)
     return INVALID_PARTID;
 }
 
-void SetPlayerPart(int client, int slot, int value, bool reset=false)
+int SetPlayerPart(int client, int value) // return: 적용된 슬릇 값.
 {
     // TODO: 슬릇 지정 불가능하게 할 것.
-    if(!IsValidSlot(client, slot)) return;
+    RefrashPartSlotArray(client);
+    int slot = FindActiveSlots(client);
+    if(!IsValidSlot(client, slot)) return -1;
 
     ActivedPartSlotArray[client].Set(slot, value);
-
-    if(reset)
-    {
-        ActivedPartSlotArray[client].Clear();
-    }
+    return slot;
 }
 
-void RefrashPartSlotArray(int client)
+void RefrashPartSlotArray(int client, bool reset=false)
 {
     if(ActivedPartSlotArray[client] != INVALID_HANDLE)
     {
@@ -578,10 +591,13 @@ void RefrashPartSlotArray(int client)
 
     ActivedPartSlotArray[client] = new ArrayList(MaxPartSlot[client], MaxPartSlot[client]);
 
-    for(int count=0; count<beforeSize; count++)
+    if(!reset)
     {
-        ActivedPartSlotArray[client].Push(beforeCell[count]);
-        Debug("%N: [%i] %i", client, count, beforeCell[count]);
+        for(int count=0; count<beforeSize; count++)
+        {
+            ActivedPartSlotArray[client].Push(beforeCell[count]);
+            Debug("%N: [%i] %i", client, count, beforeCell[count]);
+        }
     }
 }
 
