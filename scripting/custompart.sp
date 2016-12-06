@@ -38,6 +38,11 @@ public Plugin myinfo = {
 Handle PartKV;
 Handle cvarChatCommand;
 
+Handle OnTouchedPartProp;
+Handle OnTouchedPartPropPost;
+Handle OnGetPart;
+Handle OnGetPartPost;
+
 int g_iChatCommand=0;
 char g_strChatCommand[42][50];
 
@@ -52,11 +57,34 @@ Handle cvarPropVelocity;
 Handle cvarPropForNoBossTeam;
 Handle cvarPropSize;
 
-int ActivedPartCount[MAXPLAYERS+1];
+// int ActivedPartCount[MAXPLAYERS+1];
 int MaxPartSlot[MAXPLAYERS+1];
 int LastSelectedSlot[MAXPLAYERS+1];
 ArrayList ActivedPartSlotArray[MAXPLAYERS+1];
 // ArrayList PartSlotCoolTimeArray[MAXPLAYERS+1];
+
+
+public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, err_max)
+{
+	CreateNative("CP_GetClientPart", Native_GetClientPart);
+    CreateNative("CP_SetClientPart", Native_SetClientPart);
+    CreateNative("CP_IsPartActived", Native_IsPartActived);
+    CreateNative("CP_RefrashPartSlotArray", Native_RefrashPartSlotArray);
+    CreateNative("CP_IsValidPart", Native_IsValidPart);
+    CreateNative("CP_IsValidSlot", Native_IsValidSlot);
+    CreateNative("CP_GetPartPropInfo", Native_GetPartPropInfo);
+    CreateNative("CP_SetPartPropInfo", Native_SetPartPropInfo);
+    CreateNative("CP_PropToPartProp", Native_PropToPartProp);
+    CreateNative("CP_GetClientMaxSlot", Native_GetClientMaxslot);
+    CreateNative("CP_SetClientMaxSlot", Native_SetClientMaxslot);
+
+    OnTouchedPartProp = CreateGlobalForward("CP_OnTouchedPartProp", ET_Hook, Param_Cell, Param_Cell);
+    OnTouchedPartPropPost = CreateGlobalForward("CP_OnTouchedPartProp_Post", ET_Hook, Param_Cell, Param_Cell);
+    OnGetPart = CreateGlobalForward("CP_OnGetPart", ET_Hook, Param_Cell, Param_Cell);
+    OnGetPartPost = CreateGlobalForward("CP_OnGetPart_Post", ET_Hook, Param_Cell, Param_Cell);
+
+	return APLRes_Success;
+}
 
 public void OnPluginStart()
 {
@@ -65,7 +93,7 @@ public void OnPluginStart()
   cvarPropCount = CreateConVar("cp_prop_count", "1", "생성되는 프롭 갯수, 0은 생성을 안함", _, true, 0.0);
   cvarPropVelocity = CreateConVar("cp_prop_velocity", "250.0", "프롭 생성시 흩어지는 최대 속도, 설정한 범위 내로 랜덤으로 속도가 정해집니다.", _, true, 0.0);
   cvarPropForNoBossTeam = CreateConVar("cp_prop_for_team", "2", "0 혹은 1은 제한 없음, 2는 레드팀에게만, 3은 블루팀에게만. (생성도 포함됨.)", _, true, 0.0, true, 2.0);
-  cvarPropSize = CreateConVar("cp_prop_size", "80.0", "캡슐 섭취 범위", _, true, 0.1);
+  cvarPropSize = CreateConVar("cp_prop_size", "50.0", "캡슐 섭취 범위", _, true, 0.1);
 
   RegConsoleCmd("slot", TestSlot);
 
@@ -242,6 +270,23 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
 	int client = IsEntityStuck(entity);
 	if(IsValidClient(client))
 	{
+        Action action;
+        int tempClient = client;
+        int tempEntity = entity;
+
+        action = Forward_OnTouchedPartProp(tempClient, tempEntity);
+        if(action == Plugin_Handled || action == Plugin_Stop)
+        {
+            IgnoreAndKickIt(client, entity);
+            return Plugin_Continue;
+        }
+        else if(action == Plugin_Changed)
+        {
+            client = tempClient;
+            entity = tempEntity;
+        }
+        Forward_OnTouchedPartProp_Post(client, entity);
+
         PartRank rank = view_as<PartRank>(GetPartPropInfo(entity, Info_Rank));
         int part;
         int slot;
@@ -255,19 +300,34 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
         )
 		{
             RefrashPartSlotArray(client, true);
-            part = RandomPart(client, rank);
+            part = GetPartPropInfo(entity, Rank_Normal);
+            if(part <= 0)
+                part = RandomPart(client, rank);
+
             slot = FindActiveSlots(client);
 
             Debug("확정된 파츠: %i, slot = %i", part, slot);
 
-            if(part <= 0 || slot < 0)
+            if(part <= 0 || slot < 0) // 유효한 파츠이나 파츠 슬릇 체크
             {
-                KickEntity(client, entity);
-                CreateTimer(0.05, OnPickup, EntIndexToEntRef(entity));
+                IgnoreAndKickIt(client, entity);
                 return Plugin_Continue;
             }
 
-            SetPlayerPart(client, slot, part);
+            action = Forward_OnGetPart(tempClient, tempEntity);
+            if(action == Plugin_Handled || action == Plugin_Stop)
+            {
+                IgnoreAndKickIt(client, entity);
+                return Plugin_Continue;
+            }
+            else if(action == Plugin_Changed)
+            {
+                client = tempClient;
+                entity = tempEntity;
+            }
+            Forward_OnTouchedPartProp_Post(client, entity);
+
+            SetClientPart(client, slot, part);
             ViewPart(client, slot);
             PrintCenterText(client, "파츠를 흭득하셨습니다!");
 
@@ -282,6 +342,12 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
 
 	CreateTimer(0.05, OnPickup, EntIndexToEntRef(entity));
 	return Plugin_Continue;
+}
+
+void IgnoreAndKickIt(int client, int prop)
+{
+    KickEntity(client, prop);
+    CreateTimer(0.05, OnPickup, EntIndexToEntRef(prop));
 }
 
 public Action FakePickup(Handle timer, int entRef)
@@ -348,7 +414,7 @@ void ViewPart(int client, int slot=0)
     {
         int part;
 
-        if(!IsValidPart((part = GetPlayerPartslot(client, slot))))
+        if(!IsValidPart((part = GetClientPart(client, slot))))
             part = INVALID_PARTID;
 
         char item[500];
@@ -502,7 +568,7 @@ PartRank RandomPartRank()
     ranklist[0] = 45;
     ranklist[1] = 30;
     ranklist[2] = 20;
-    ranklist[3] = 10;
+    ranklist[3] = 5;
 
     SetRandomSeed(GetTime());
 
@@ -546,7 +612,7 @@ int FindActiveSlots(int client)
     return -1;
 }
 
-int GetPlayerPartslot(int client, int slot)
+int GetClientPart(int client, int slot)
 {
     if(IsValidSlot(client, slot))
         return ActivedPartSlotArray[client].Get(slot);
@@ -554,7 +620,7 @@ int GetPlayerPartslot(int client, int slot)
     return INVALID_PARTID;
 }
 
-void SetPlayerPart(int client, int slot, int value) // return: 적용된 슬릇 값.
+void SetClientPart(int client, int slot, int value) // return: 적용된 슬릇 값.
 {
     if(!IsValidSlot(client, slot)) return;
 
@@ -578,7 +644,7 @@ void RefrashPartSlotArray(int client, bool holdParts=false)
     {
         if(holdParts && IsValidPart(beforeCell[count])) ActivedPartSlotArray[client].Set(count, beforeCell[count]);
         else ActivedPartSlotArray[client].Set(count, 0);
-        Debug("%N: [%i] %i", client, count, ActivedPartSlotArray[client].Get(count));
+        // Debug("%N: [%i] %i", client, count, ActivedPartSlotArray[client].Get(count));
     }
 
 }
@@ -673,6 +739,45 @@ void SetPartPropInfo(int prop, PartInfo partinfo, int value, bool changeModel = 
     }
 }
 
+void PropToPartProp(int prop, int partIndex=0, PartRank rank=Rank_Normal, bool createLight, bool changeModel=false, bool IsFake=false)
+{
+    char partAccount[150];
+
+    Format(partAccount, sizeof(partAccount), "partEntId=%i?partRank=%i?settingPartIndex=%i", prop, view_as<int>(rank));
+
+    SetEntPropString(prop, Prop_Data, "m_iName", partAccount);
+
+    SetEntityMoveType(prop, MOVETYPE_VPHYSICS);
+    SetEntProp(prop, Prop_Send, "m_CollisionGroup", 2);
+
+    if(createLight)
+    {
+        int colors[4];
+        int glow = TF2_CreateGlow(prop);
+        GetPartRankColor(partRank, colors);
+        TF2_SetGlowColor(glow, colors);
+    }
+
+    if(changeModel)
+    {
+        char model[PLATFORM_MAX_PATH];
+        GetPartModelString(view_as<PartRank>(GetPartPropInfo(prop, Info_Rank)), model, sizeof(model));
+
+        SetEntityModel(prop, model);
+    }
+
+    if(IsFake)
+    {
+        CreateTimer(2.0, FakePickup, EntIndexToEntRef(prop));
+        SDKHook(prop, SDKHook_SetTransmit, FakePropTransmit);
+
+    }
+    else
+    {
+        CreateTimer(0.05, OnPickup, EntIndexToEntRef(prop));
+    }
+}
+
 bool CanUsePartBoss(int partIndex)
 {
     if(IsValidPart(partIndex))
@@ -749,6 +854,109 @@ bool CanUseSystemClass(TFClassType class)
     }
     while(KvGotoNextKey(clonedHandle));
     return false;
+}
+
+public Native_GetClientPart(Handle plugin, int numParams)
+{
+    return GetClientPart(GetNativeCell(1), GetNativeCell(2));
+}
+
+public Native_SetClientPart(Handle plugin, int numParams)
+{
+    SetClientPart(GetNativeCell(1), GetNativeCell(2), GetNativeCell(3));
+}
+
+public Native_IsPartActived(Handle plugin, int numParams)
+{
+    return _:IsPartActived(GetNativeCell(1), GetNativeCell(2));
+}
+
+public Native_RefrashPartSlotArray(Handle plugin, int numParams)
+{
+    RefrashPartSlotArray(GetNativeCell(1), GetNativeCell(2));
+}
+
+public Native_IsValidPart(Handle plugin, int numParams)
+{
+    return IsValidPart(GetNativeCell(1));
+}
+
+public Native_IsValidSlot(Handle plugin, int numParams)
+{
+    return IsValidSlot(GetNativeCell(1), GetNativeCell(2));
+}
+
+public Native_GetPartPropInfo(Handle plugin, int numParams)
+{
+    return GetPartPropInfo(GetNativeCell(1), GetNativeCell(2));
+}
+
+public Native_SetPartPropInfo(Handle plugin, int numParams)
+{
+    SetPartPropInfo(GetNativeCell(1), GetNativeCell(2), GetNativeCell(3), GetNativeCell(4));
+}
+
+public Native_PropToPartProp(Handle plugin, int numParams)
+{
+    PropToPartProp(GetNativeCell(1), GetNativeCell(2), GetNativeCell(3), GetNativeCell(4), GetNativeCell(5), GetNativeCell(6));
+}
+
+public Native_GetClientMaxslot(Handle plugin, int numParams)
+{
+    return GetClientMaxSlot(GetNativeCell(1));
+}
+
+public Native_SetClientMaxslot(Handle plugin, int numParams)
+{
+    SetClientMaxSlot(GetNativeCell(1), GetNativeCell(2));
+}
+
+public Action Forward_OnTouchedPartProp(int client, int prop)
+{
+    Action action;
+    Call_StartForward(OnTouchedPartProp);
+    Call_PushCell(client);
+    Call_PushCell(prop);
+    Call_Finish(action);
+
+    return action;
+}
+
+void Forward_OnTouchedPartProp_Post(int client, int prop)
+{
+    Call_StartForward(OnTouchedPartPropPost);
+    Call_PushCell(client);
+    Call_PushCell(prop);
+    Call_Finish();
+}
+
+public Action Forward_OnGetPart(int client, int part)
+{
+    Action action;
+    Call_StartForward(OnGetPart);
+    Call_PushCell(client);
+    Call_PushCell(part);
+    Call_Finish(action);
+
+    return action;
+}
+
+void Forward_OnGetPart_Post(int client, int part)
+{
+    Call_StartForward(OnGetPartPost);
+    Call_PushCell(client);
+    Call_PushCell(part);
+    Call_Finish();
+}
+
+int GetClientMaxSlot(int client)
+{
+    return MaxPartSlot[client];
+}
+
+void SetClientMaxSlot(int client, int maxSlot)
+{
+    MaxPartSlot[client] = maxSlot;
 }
 
 void CheckPartConfigFile()
