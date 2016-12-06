@@ -300,13 +300,13 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
         )
 		{
             RefrashPartSlotArray(client, true);
-            part = GetPartPropInfo(entity, Rank_Normal);
-            if(part <= 0)
+            part = GetPartPropInfo(entity, Info_CustomInfo);
+            if(!IsValidPart(part))
                 part = RandomPart(client, rank);
 
             slot = FindActiveSlots(client);
 
-            Debug("확정된 파츠: %i, slot = %i", part, slot);
+            Debug("확정된 파츠: %i, slot = %i, rank = %i", part, slot, view_as<int>(rank));
 
             if(part <= 0 || slot < 0) // 유효한 파츠이나 파츠 슬릇 체크
             {
@@ -325,7 +325,7 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
                 client = tempClient;
                 entity = tempEntity;
             }
-            Forward_OnTouchedPartProp_Post(client, entity);
+            Forward_OnGetPart_Post(client, entity);
 
             SetClientPart(client, slot, part);
             ViewPart(client, slot);
@@ -531,7 +531,7 @@ int RandomPart(int client, PartRank rank)
                     {
                         count++;
                         parts.Push(part);
-                        Debug("%d 파츠가 랜덤 리스트에 오름.", part);
+                        Debug("%d 파츠가 랜덤 리스트에 오름. rank = %i, 파츠랭크 = %i", part, view_as<int>(rank), view_as<int>(GetPartRank(part)));
                     }
                 }
             }
@@ -675,8 +675,7 @@ PartRank GetPartRank(int partIndex)
 {
     if(IsValidPart(partIndex))
     {
-        Handle clonedHandle = CloneHandle(PartKV);
-        return view_as<PartRank>(KvGetNum(clonedHandle, "rank"));
+        return view_as<PartRank>(KvGetNum(PartKV, "rank"));
     }
 
     return Rank_Normal;
@@ -703,9 +702,11 @@ int GetPartPropInfo(int prop, PartInfo partinfo)
     char temp[2][32];
 
     GetEntPropString(prop, Prop_Data, "m_iName", propName, sizeof(propName));
-
+    Debug("%s", propName);
     ExplodeString(propName, "?", partIndexString, sizeof(partIndexString), sizeof(partIndexString[]));
+    Debug("%s", partIndexString[find]);
     ExplodeString(partIndexString[find], "=", temp, sizeof(temp), sizeof(temp[]));
+    Debug("%s | %s", temp[0], temp[1]);
 
     return StringToInt(temp[1]);
 }
@@ -754,7 +755,7 @@ void PropToPartProp(int prop, int partIndex=0, PartRank rank=Rank_Normal, bool c
     {
         int colors[4];
         int glow = TF2_CreateGlow(prop);
-        GetPartRankColor(partRank, colors);
+        GetPartRankColor(rank, colors);
         TF2_SetGlowColor(glow, colors);
     }
 
