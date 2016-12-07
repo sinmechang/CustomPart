@@ -730,7 +730,7 @@ void SetPartPropInfo(int prop, PartInfo partinfo, int value, bool changeModel = 
     ImplodeStrings(partIndexString, sizeof(partIndexString), "?", propName, sizeof(propName));
 
     // SetEntPropString(prop, Prop_Data, "m_iName", propName);
-    DispatchKeyValue(prop, "targetname", partAccount);
+    DispatchKeyValue(prop, "targetname", propName);
 
     if(changeModel)
     {
