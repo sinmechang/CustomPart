@@ -224,10 +224,10 @@ int SpawnCustomPart(PartRank partRank, float position[3], float velocity[3], boo
         SetEntityModel(prop, modelPath);
         SetEntityMoveType(prop, MOVETYPE_VPHYSICS);
         SetEntProp(prop, Prop_Send, "m_CollisionGroup", 2);
-        SetEntPropString(prop, Prop_Data, "m_iName", partAccount);
-        // SetEntProp(prop, Prop_Send, "m_usSolidFlags", 16); // 0x0004
+        // SetEntPropString(prop, Prop_Data, "m_iName", partAccount);
         SetEntProp(prop, Prop_Send, "m_usSolidFlags", 0x0004);
         DispatchSpawn(prop);
+        DispatchKeyValue(prop, "targetname", partAccount);
 
         GetPartRankColor(partRank, colors);
 
@@ -436,7 +436,7 @@ void ViewPart(int client, int slot=0)
         // menu.AddItem("ability_description", item, ITEMDRAW_DISABLED);
 
         GetPartString(part, "idea_owner_nickname", tempItem, sizeof(tempItem));
-        if(item[0] != '\0') Format(item, sizeof(item), "%s\n아이디어 제공: %s\n\n", item, tempItem);
+        if(tempItem[0] != '\0') Format(item, sizeof(item), "%s\n아이디어 제공: %s\n\n", item, tempItem);
         else Format(item, sizeof(item), "%s\nPOTRY SERVER ORIGINAL CUSTOMPART\n\n", item);
         // menu.AddItem("idea_owner_nickname", item, ITEMDRAW_DISABLED);
 
@@ -729,7 +729,8 @@ void SetPartPropInfo(int prop, PartInfo partinfo, int value, bool changeModel = 
     strcopy(partIndexString[find], sizeof(partIndexString), temp[0]);
     ImplodeStrings(partIndexString, sizeof(partIndexString), "?", propName, sizeof(propName));
 
-    SetEntPropString(prop, Prop_Data, "m_iName", propName);
+    // SetEntPropString(prop, Prop_Data, "m_iName", propName);
+    DispatchKeyValue(prop, "targetname", partAccount);
 
     if(changeModel)
     {
@@ -746,7 +747,8 @@ void PropToPartProp(int prop, int partIndex=0, PartRank rank=Rank_Normal, bool c
 
     Format(partAccount, sizeof(partAccount), "partEntId=%i?partRank=%i?settingPartIndex=%i", prop, view_as<int>(rank));
 
-    SetEntPropString(prop, Prop_Data, "m_iName", partAccount);
+    // SetEntPropString(prop, Prop_Data, "m_iName", partAccount);
+    DispatchKeyValue(prop, "targetname", partAccount);
 
     SetEntityMoveType(prop, MOVETYPE_VPHYSICS);
     SetEntProp(prop, Prop_Send, "m_CollisionGroup", 2);
