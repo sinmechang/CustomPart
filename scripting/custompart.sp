@@ -224,7 +224,10 @@ int SpawnCustomPart(PartRank partRank, float position[3], float velocity[3], boo
         SetEntityModel(prop, modelPath);
         SetEntityMoveType(prop, MOVETYPE_VPHYSICS);
         SetEntProp(prop, Prop_Send, "m_CollisionGroup", 2);
-        // SetEntPropString(prop, Prop_Data, "m_iName", partAccount);
+
+        int nameOff = FindDataMapInfo(prop, "m_iName");
+        SetEntDataString(prop, nameOff, partAccount, sizeof(partAccount), true);
+        SetEntPropString(prop, Prop_Data, "m_iName", partAccount);
         SetEntProp(prop, Prop_Send, "m_usSolidFlags", 0x0004);
         DispatchSpawn(prop);
         DispatchKeyValue(prop, "targetname", partAccount);
@@ -729,7 +732,9 @@ void SetPartPropInfo(int prop, PartInfo partinfo, int value, bool changeModel = 
     strcopy(partIndexString[find], sizeof(partIndexString), temp[0]);
     ImplodeStrings(partIndexString, sizeof(partIndexString), "?", propName, sizeof(propName));
 
-    // SetEntPropString(prop, Prop_Data, "m_iName", propName);
+    int nameOff = FindDataMapInfo(prop, "m_iName");
+    SetEntDataString(prop, nameOff, propName, sizeof(propName), true);
+    SetEntPropString(prop, Prop_Data, "m_iName", propName);
     DispatchKeyValue(prop, "targetname", propName);
 
     if(changeModel)
@@ -747,7 +752,9 @@ void PropToPartProp(int prop, int partIndex=0, PartRank rank=Rank_Normal, bool c
 
     Format(partAccount, sizeof(partAccount), "partEntId=%i?partRank=%i?settingPartIndex=%i", prop, view_as<int>(rank));
 
-    // SetEntPropString(prop, Prop_Data, "m_iName", partAccount);
+    int nameOff = FindDataMapInfo(prop, "m_iName");
+    SetEntDataString(prop, nameOff, partAccount, sizeof(partAccount), true);
+    SetEntPropString(prop, Prop_Data, "m_iName", partAccount);
     DispatchKeyValue(prop, "targetname", partAccount);
 
     SetEntityMoveType(prop, MOVETYPE_VPHYSICS);
