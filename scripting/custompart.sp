@@ -226,11 +226,15 @@ int SpawnCustomPart(PartRank partRank, float position[3], float velocity[3], boo
         SetEntProp(prop, Prop_Send, "m_CollisionGroup", 2);
 
         int nameOff = FindDataMapInfo(prop, "m_iName");
-        SetEntDataString(prop, nameOff, partAccount, sizeof(partAccount), true);
-        SetEntPropString(prop, Prop_Data, "m_iName", partAccount);
+        if(nameOff < 0)
+            Debug("오프셋이 유효하지 않음!");
+        else
+            SetEntDataString(prop, nameOff, partAccount, sizeof(partAccount));
+        // SetEntPropString(prop, Prop_Data, "m_iName", partAccount);
+
         SetEntProp(prop, Prop_Send, "m_usSolidFlags", 0x0004);
+        // DispatchKeyValue(prop, "targetname", partAccount);
         DispatchSpawn(prop);
-        DispatchKeyValue(prop, "targetname", partAccount);
 
         GetPartRankColor(partRank, colors);
 
@@ -733,9 +737,13 @@ void SetPartPropInfo(int prop, PartInfo partinfo, int value, bool changeModel = 
     ImplodeStrings(partIndexString, sizeof(partIndexString), "?", propName, sizeof(propName));
 
     int nameOff = FindDataMapInfo(prop, "m_iName");
-    SetEntDataString(prop, nameOff, propName, sizeof(propName), true);
-    SetEntPropString(prop, Prop_Data, "m_iName", propName);
-    DispatchKeyValue(prop, "targetname", propName);
+    if(nameOff < 0)
+        Debug("오프셋이 유효하지 않음!");
+    else
+        SetEntDataString(prop, nameOff, propName, sizeof(propName));
+    // SetEntPropString(prop, Prop_Data, "m_iName", propName);
+
+    // DispatchKeyValue(prop, "targetname", propName);
 
     if(changeModel)
     {
@@ -751,10 +759,14 @@ void PropToPartProp(int prop, int partIndex=0, PartRank rank=Rank_Normal, bool c
     char partAccount[150];
 
     Format(partAccount, sizeof(partAccount), "partEntId=%i?partRank=%i?settingPartIndex=%i", prop, view_as<int>(rank));
-
+/*
     int nameOff = FindDataMapInfo(prop, "m_iName");
-    SetEntDataString(prop, nameOff, partAccount, sizeof(partAccount), true);
+    if(nameOff < 0)
+        Debug("오프셋이 유효하지 않음!");
+    else
+        SetEntDataString(prop, nameOff, partAccount, sizeof(partAccount));
     SetEntPropString(prop, Prop_Data, "m_iName", partAccount);
+*/
     DispatchKeyValue(prop, "targetname", partAccount);
 
     SetEntityMoveType(prop, MOVETYPE_VPHYSICS);
