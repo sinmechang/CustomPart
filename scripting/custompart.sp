@@ -28,6 +28,9 @@ Core Plugin By Nopied◎
 
 #define INVALID_PARTID -1
 
+#define	MAX_EDICT_BITS	12
+#define	MAX_EDICTS		(1 << MAX_EDICT_BITS)
+
 public Plugin myinfo = {
   name=PLUGIN_NAME,
   author=PLUGIN_AUTHOR,
@@ -57,12 +60,14 @@ Handle cvarPropVelocity;
 Handle cvarPropForNoBossTeam;
 Handle cvarPropSize;
 
-// int ActivedPartCount[MAXPLAYERS+1];
 int MaxPartSlot[MAXPLAYERS+1];
 int LastSelectedSlot[MAXPLAYERS+1];
 ArrayList ActivedPartSlotArray[MAXPLAYERS+1];
-// ArrayList PartSlotCoolTimeArray[MAXPLAYERS+1];
 
+
+// TODO: 최적화
+int PartPropRank[MAX_EDICTS+1];
+int PartPropCustomIndex[MAX_EDICTS+1];
 
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, err_max)
 {
