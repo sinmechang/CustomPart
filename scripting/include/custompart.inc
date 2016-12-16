@@ -11,7 +11,7 @@ enum PartInfo
 {
     Info_EntId=0,
     Info_Rank,
-    Info_CustomInfo
+    Info_CustomIndex
 };
 
 /*
@@ -82,36 +82,61 @@ native bool CP_IsValidPart(int partIndex);
 native bool CP_IsValidSlot(int client, int slot);
 
 /*
+* 해당 프롭의 정보를 구함.
 *
+*  @param prop 확인할 프롭
+*  @param partInfo 확인할 정보
+*  @return 확인할 정보의 값.
+**************
 *
+*   이 함수는 정수(int)형으로 반환함. (PartRank는 형변환이 필요함)
 *
 */
 native int CP_GetPartPropInfo(int prop, PartInfo partInfo);
 
 /*
+*  해당 프롭의 정보를 정함.
 *
+*   @param prop 설정할 프롭
+*   @param partInfo 설정할 정보
+*   @param value 설정할 값  **** 형변환 필요없음!
+*   @param changeModel true일 경우, 그 랭크의 모델로 바뀜.
+*   @noreturn
 *
 *
 */
-native void CP_SetPartPropInfo(int prop, PartInfo partinfo, int value, bool changeModel = false);
+native void CP_SetPartPropInfo(int prop, PartInfo partinfo, any value, bool changeModel = false);
 
 /*
+*   해당 엔티티를 파츠 프롭으로 정함.
 *
+*   @param prop 설정할 프롭
+*   @param partIndex 설정할 파츠의 값 (0일 경우, 닿을 시 랜덤)
+*   @param rank 설정할 파츠의 랭크
+*   @param createLight 윤곽선 표시여부
+*   @param changeModel true일 경우, 그 랭크의 모델로 바뀜.
+*   @param IsFake 가짜 파츠 설정
+*   @noreturn
 *
 *
 */
-native bool CP_PropToPartProp(int prop, int partIndex=0, PartRank rank=Rank_Normal, bool createLight, bool changeModel=false, bool IsFake=false);
+native void CP_PropToPartProp(int prop, int partIndex=0, PartRank rank=Rank_Normal, bool createLight, bool changeModel=false, bool IsFake=false);
 
 /*
+*   해당 클라이언트의 슬릇 최대량을 구함.
 *
-*
+*   @param client 구할 클라이언트
+*   @return 그 클라이언트의 슬릇값
 *
 */
 native int CP_GetClientMaxSlot(int client);
 
 /*
+*   해당 클라이언트의 슬릇 최대량을 구함.
 *
-*
+*   @param client 정할 클라이언트
+*   @param maxSlot 정할 슬릇크기
+*   @noreturn
 *
 */
 native void CP_SetClientMaxSlot(int client, int maxSlot);
@@ -135,11 +160,18 @@ forward void CP_OnTouchedPartProp_Post(int client, int prop);
 *
 *
 */
-forward Action CP_OnGetPart(int client, int part);
+forward Action CP_OnGetPart(int client, int prop, int partIndex);
 
 /*
 *
 *
 *
 */
-forward void CP_OnGetPart_Post(int client, int part);
+forward void CP_OnGetPart_Post(int client, int partIndex);
+
+/*
+*
+*
+*
+*/
+forward Action CP_OnSlotClear(int client, int partIndex, bool gotoNextRound);

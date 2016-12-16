@@ -45,6 +45,7 @@ Handle OnTouchedPartProp;
 Handle OnTouchedPartPropPost;
 Handle OnGetPart;
 Handle OnGetPartPost;
+Handle OnSlotClear;
 
 int g_iChatCommand=0;
 char g_strChatCommand[42][50];
@@ -66,7 +67,7 @@ ArrayList ActivedPartSlotArray[MAXPLAYERS+1];
 
 
 // TODO: 최적화
-int PartPropRank[MAX_EDICTS+1];
+PartRank PartPropRank[MAX_EDICTS+1];
 int PartPropCustomIndex[MAX_EDICTS+1];
 
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, err_max)
@@ -85,8 +86,9 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, err_max)
 
     OnTouchedPartProp = CreateGlobalForward("CP_OnTouchedPartProp", ET_Hook, Param_Cell, Param_Cell);
     OnTouchedPartPropPost = CreateGlobalForward("CP_OnTouchedPartProp_Post", ET_Hook, Param_Cell, Param_Cell);
-    OnGetPart = CreateGlobalForward("CP_OnGetPart", ET_Hook, Param_Cell, Param_Cell);
+    OnGetPart = CreateGlobalForward("CP_OnGetPart", ET_Hook, Param_Cell, Param_Cell, Param_Cell);
     OnGetPartPost = CreateGlobalForward("CP_OnGetPart_Post", ET_Hook, Param_Cell, Param_Cell);
+    OnSlotClear = CreateGlobalForward("CP_OnSlotClear", ET_Hook, Param_Cell, Param_Cell, Param_Cell);
 
 	return APLRes_Success;
 }
@@ -122,18 +124,7 @@ public void OnPluginStart()
       ActivedPartSlotArray[client].Resize(50);
   }
 }
-/*
-public Action OnRoundStart(Handle event, const char[] name, bool dont)
-{
 
-
-}
-
-public Action OnRoundEnd(Handle event, const char[] name, bool dont)
-{
-
-}
-*/
 public Action TestSlot(int client, int args)
 {
     RefrashPartSlotArray(client, true);
@@ -143,6 +134,12 @@ public Action TestSlot(int client, int args)
     {
         CPrintToChatAll("[%i] %i", count, ActivedPartSlotArray[client].Get(count));
     }
+}
+
+public void OnEntityDestroyed(int entity)
+{
+    PartPropRank[entity] = Rank_Normal;
+    PartPropCustomIndex[entity] = 0;
 }
 
 public void OnMapStart()
@@ -168,7 +165,34 @@ void ChangeChatCommand()
 
 public void OnClientDisconnect(int client)
 {
+    //
+    if(ActivedPartSlotArray[client] != INVALID_HANDLE) // 아마도 될껄?
+    {
+        RefrashPartSlotArray(client, true);
+
+        Action action;
+        int remainCount = 0;
+        int temp, tempClient = client, tempPart;
+        int[] maxSlot = new int[MaxPartSlot[client]]
+
+        for(int target=0; target<MaxPartSlot[client]; target++)
+        {
+            temp = ActivedPartSlotArray[client].Get(target);
+            tempPart = temp;
+
+            action = Forward_OnSlotClear(tempClient, tempPart);
+
+            if(action == Plugin_Handled)
+            {
+                maxSlot[remainCount++] = temp;
+                changed = true;
+            }
+        }
+    }
+
+    MaxPartSlot[client] = MaxPartGlobalSlot;
     ActivedPartSlotArray[client].Clear();
+    ActivedPartSlotArray[client] = view_as<ArrayList>(INVALID_HANDLE);
 }
 
 public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
@@ -176,9 +200,56 @@ public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
     if(enabled)
     {
         int client = GetClientOfUserId(GetEventInt(event, "userid"));
+        bool changed = false;
 
-        MaxPartSlot[client] = MaxPartGlobalSlot;
-        RefrashPartSlotArray(client);
+        // TODO: 이 로직은 라운드가 다른 상태면 비활성화하게 해야함.
+
+        if(ActivedPartSlotArray[client] != INVALID_HANDLE) // 아마도 될껄?
+        {
+            RefrashPartSlotArray(client, true);
+
+            Action action;
+            int remainCount = 0;
+            bool[] gotoNextRound = new bool[MaxPartSlot[client]]
+            int temp, tempClient = client, tempPart;
+            bool tempGoToNextRound = false;
+            int[] maxSlot = new int[MaxPartSlot[client]]
+
+            for(int target=0; target<MaxPartSlot[client]; target++)
+            {
+                temp = ActivedPartSlotArray[client].Get(target);
+                tempPart = temp;
+                tempGoToNextRound = false;
+
+                action = Forward_OnSlotClear(tempClient, tempPart, tempGoToNextRound);
+
+                if(action == Plugin_Handled)
+                {
+                    maxSlot[remainCount++] = temp;
+                    gotoNextRound[remainCount] = tempGoToNextRound;
+                    changed = true;
+                }
+            }
+            // TODO: 잠깐... 최대 파츠 슬릇은..?
+            RefrashPartSlotArray(client);
+
+            if(changed)
+            {
+                for(int target=0; target<MaxPartSlot[client]; target++)
+                {
+                    if(target < remainCount && target < MaxPartSlot[client]
+                         &&
+                         (!gotoNextRound[target] || (CheckRoundState != 1 && gotoNextRound[target]))
+                         )
+                        ActivedPartSlotArray.Set(target, maxSlot[target]);
+                }
+            }
+        }
+        else
+        {
+            MaxPartSlot[client] = MaxPartGlobalSlot;
+            RefrashPartSlotArray(client);
+        }
     }
 }
 
@@ -222,7 +293,9 @@ int SpawnCustomPart(PartRank partRank, float position[3], float velocity[3], boo
         int colors[4];
 
         GetPartModelString(partRank, modelPath, sizeof(modelPath));
-        Format(partAccount, sizeof(partAccount), "partEntId=%i?partRank=%i?settingPartIndex=0", prop, view_as<int>(partRank));
+
+        PartPropRank[prop] = partRank;
+        PartPropCustomIndex[prop] = 0;
 
         Debug("생성된 파츠: %s", partAccount);
 
@@ -230,15 +303,7 @@ int SpawnCustomPart(PartRank partRank, float position[3], float velocity[3], boo
         SetEntityMoveType(prop, MOVETYPE_VPHYSICS);
         SetEntProp(prop, Prop_Send, "m_CollisionGroup", 2);
 
-        int nameOff = FindDataMapInfo(prop, "m_iName");
-        if(nameOff < 0)
-            Debug("오프셋이 유효하지 않음!");
-        else
-            SetEntDataString(prop, nameOff, partAccount, sizeof(partAccount));
-        // SetEntPropString(prop, Prop_Data, "m_iName", partAccount);
-
         SetEntProp(prop, Prop_Send, "m_usSolidFlags", 0x0004);
-        // DispatchKeyValue(prop, "targetname", partAccount);
         DispatchSpawn(prop);
 
         GetPartRankColor(partRank, colors);
@@ -285,6 +350,7 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
         Action action;
         int tempClient = client;
         int tempEntity = entity;
+        int tempPart;
 
         action = Forward_OnTouchedPartProp(tempClient, tempEntity);
         if(action == Plugin_Handled || action == Plugin_Stop)
@@ -312,11 +378,12 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
         )
 		{
             RefrashPartSlotArray(client, true);
-            part = GetPartPropInfo(entity, Info_CustomInfo);
+            part = GetPartPropInfo(entity, Info_CustomIndex);
             if(!IsValidPart(part))
                 part = RandomPart(client, rank);
 
             slot = FindActiveSlots(client);
+            tempPart = part;
 
             Debug("확정된 파츠: %i, slot = %i, rank = %i", part, slot, view_as<int>(rank));
 
@@ -326,7 +393,7 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
                 return Plugin_Continue;
             }
 
-            action = Forward_OnGetPart(tempClient, tempEntity);
+            action = Forward_OnGetPart(tempClient, tempEntity, tempPart);
             if(action == Plugin_Handled || action == Plugin_Stop)
             {
                 IgnoreAndKickIt(client, entity);
@@ -336,8 +403,9 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
             {
                 client = tempClient;
                 entity = tempEntity;
+                part = tempPart;
             }
-            Forward_OnGetPart_Post(client, entity);
+            Forward_OnGetPart_Post(client, tempPart);
 
             SetClientPart(client, slot, part);
             ViewPart(client, slot);
@@ -707,48 +775,37 @@ public void GetPartString(int partIndex, char[] key, char[] values, int bufferLe
 
 int GetPartPropInfo(int prop, PartInfo partinfo)
 {
-    int find = view_as<int>(partinfo);
+    switch(partinfo)
+    {
+      case Info_Rank:
+      {
+        return view_as<int>(PartPropRank[prop]);
+      }
 
-    char propName[150];
-    char partIndexString[3][50];
-    char temp[2][32];
+      case Info_CustomIndex:
+      {
+        return PartPropCustomIndex[prop];
+      }
+    }
 
-    GetEntPropString(prop, Prop_Data, "m_iName", propName, sizeof(propName));
-    Debug("%s", propName);
-    ExplodeString(propName, "?", partIndexString, sizeof(partIndexString), sizeof(partIndexString[]));
-    Debug("%s", partIndexString[find]);
-    ExplodeString(partIndexString[find], "=", temp, sizeof(temp), sizeof(temp[]));
-    Debug("%s | %s", temp[0], temp[1]);
-
-    return StringToInt(temp[1]);
+    return -1;
 }
 
-void SetPartPropInfo(int prop, PartInfo partinfo, int value, bool changeModel = false)
+void SetPartPropInfo(int prop, PartInfo partinfo, any value, bool changeModel = false)
 {
-    int find = view_as<int>(partinfo);
+    switch(partinfo)
+    {
+      case Info_Rank:
+      {
+        // PartPropRank[prop] = view_as<PartRank>(value);
+        PartPropRank[prop] = value;
+      }
 
-    char propName[150];
-    char partIndexString[3][50];
-    char temp[2][50];
-
-    GetEntPropString(prop, Prop_Data, "m_iName", propName, sizeof(propName));
-
-    ExplodeString(propName, "?", partIndexString, sizeof(partIndexString), sizeof(partIndexString[]));
-    ExplodeString(partIndexString[find], "=", temp, sizeof(temp), sizeof(temp[]));
-
-    Format(temp[1], sizeof(temp[]), "%i", value);
-    StrCat(temp[0], sizeof(temp[]), temp[1]);
-    strcopy(partIndexString[find], sizeof(partIndexString), temp[0]);
-    ImplodeStrings(partIndexString, sizeof(partIndexString), "?", propName, sizeof(propName));
-
-    int nameOff = FindDataMapInfo(prop, "m_iName");
-    if(nameOff < 0)
-        Debug("오프셋이 유효하지 않음!");
-    else
-        SetEntDataString(prop, nameOff, propName, sizeof(propName));
-    // SetEntPropString(prop, Prop_Data, "m_iName", propName);
-
-    // DispatchKeyValue(prop, "targetname", propName);
+      case Info_CustomIndex:
+      {
+        PartPropCustomIndex[prop] = value;
+      }
+    }
 
     if(changeModel)
     {
@@ -761,18 +818,8 @@ void SetPartPropInfo(int prop, PartInfo partinfo, int value, bool changeModel = 
 
 void PropToPartProp(int prop, int partIndex=0, PartRank rank=Rank_Normal, bool createLight, bool changeModel=false, bool IsFake=false)
 {
-    char partAccount[150];
-
-    Format(partAccount, sizeof(partAccount), "partEntId=%i?partRank=%i?settingPartIndex=%i", prop, view_as<int>(rank));
-/*
-    int nameOff = FindDataMapInfo(prop, "m_iName");
-    if(nameOff < 0)
-        Debug("오프셋이 유효하지 않음!");
-    else
-        SetEntDataString(prop, nameOff, partAccount, sizeof(partAccount));
-    SetEntPropString(prop, Prop_Data, "m_iName", partAccount);
-*/
-    DispatchKeyValue(prop, "targetname", partAccount);
+    SetPartPropInfo(prop, Info_Rank, rank, changeModel);
+    SetPartPropInfo(prop, Info_CustomIndex, partIndex, changeModel);
 
     SetEntityMoveType(prop, MOVETYPE_VPHYSICS);
     SetEntProp(prop, Prop_Send, "m_CollisionGroup", 2);
@@ -957,23 +1004,36 @@ void Forward_OnTouchedPartProp_Post(int client, int prop)
     Call_Finish();
 }
 
-public Action Forward_OnGetPart(int client, int part)
+public Action Forward_OnGetPart(int client, int prop, int partIndex)
 {
     Action action;
     Call_StartForward(OnGetPart);
     Call_PushCell(client);
+    Call_PushCell(prop);
     Call_PushCell(part);
     Call_Finish(action);
 
     return action;
 }
 
-void Forward_OnGetPart_Post(int client, int part)
+void Forward_OnGetPart_Post(int client, int partIndex)
 {
     Call_StartForward(OnGetPartPost);
     Call_PushCell(client);
     Call_PushCell(part);
     Call_Finish();
+}
+
+public Action Forward_OnSlotClear(int client, int partIndex, bool gotoNextRound=false)
+{
+    Action action;
+    Call_StartForward(OnSlotClear);
+    Call_PushCell(client);
+    Call_PushCell(partIndex);
+    Call_PushCell(gotoNextRound);
+    Call_Finish(action);
+
+    return action;
 }
 
 int GetClientMaxSlot(int client)
