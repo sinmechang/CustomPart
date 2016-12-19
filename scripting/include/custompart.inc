@@ -1,3 +1,6 @@
+
+#define CPFLAG_DONOTCLEARSLOT (1<<1)
+
 enum PartRank
 {
     Rank_Normal=0,
@@ -140,6 +143,26 @@ native int CP_GetClientMaxSlot(int client);
 *
 */
 native void CP_SetClientMaxSlot(int client, int maxSlot);
+
+/*
+*   해당 클라이언트의 특정 파츠를 다른 파츠로 바꿈.
+*
+*   @param client 정할 클라이언트
+*   @param beforePartIndex 이 파츠를..
+*   @param afterPartIndex 이 파츠로 바꾸기
+*   @return 성공적으로 바뀌었을 경우, true로 반환함.
+*
+*/
+native bool CP_ReplacePartSlot(int client, int beforePartIndex, int afterPartIndex);
+
+/*
+*   해당 클라이언트의 비어있는 슬릇을 찾음.
+*
+*   @param client 클라이언트
+*   @return 비어있는 파츠 슬릇값을 반환함. 아닐경우 -1.
+*
+*/
+native int CP_FindActiveSlot(int client);
 
 /*
 *

@@ -83,6 +83,8 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, err_max)
     CreateNative("CP_PropToPartProp", Native_PropToPartProp);
     CreateNative("CP_GetClientMaxSlot", Native_GetClientMaxslot);
     CreateNative("CP_SetClientMaxSlot", Native_SetClientMaxslot);
+    CreateNative("CP_ReplacePartSlot", Native_ReplacePartSlot);
+    CreateNative("CP_FindActiveSlot", Native_FindActiveSlot);
 
     OnTouchedPartProp = CreateGlobalForward("CP_OnTouchedPartProp", ET_Hook, Param_Cell, Param_Cell);
     OnTouchedPartPropPost = CreateGlobalForward("CP_OnTouchedPartProp_Post", ET_Hook, Param_Cell, Param_Cell);
@@ -111,13 +113,14 @@ public void OnPluginStart()
   LoadTranslations("common.phrases");
   LoadTranslations("core.phrases");
 
-  HookEvent("player_spawn", OnPlayerSpawn);
+  HookEvent("player_spawn", OnPlayerSpawn, EventHookMode_Pre);
   HookEvent("player_death", OnPlayerDeath);
 
   // HookEvent("teamplay_round_start", OnRoundStart);
   // HookEvent("teamplay_round_win", OnRoundEnd);
 
   // RegPluginLibrary("custompart");
+
   for(int client=1; client<=MaxClients; client++)
   {
       ActivedPartSlotArray[client] = new ArrayList();
@@ -138,8 +141,11 @@ public Action TestSlot(int client, int args)
 
 public void OnEntityDestroyed(int entity)
 {
-    PartPropRank[entity] = Rank_Normal;
-    PartPropCustomIndex[entity] = 0;
+    if(entity >= 0)
+    {
+        PartPropRank[entity] = Rank_Normal;
+        PartPropCustomIndex[entity] = 0;
+    }
 }
 
 public void OnMapStart()
@@ -147,6 +153,12 @@ public void OnMapStart()
 	ChangeChatCommand();
     CheckPartConfigFile();
     CreateTimer(0.2, PrecacheTimer);
+
+    for(int client=1; client<=MaxClients; client++)
+    {
+        if(IsClientInGame(client))
+            RefrashPartSlotArray(client);
+    }
 }
 
 void ChangeChatCommand()
@@ -163,10 +175,23 @@ void ChangeChatCommand()
 	}
 }
 
+public OnClientPostAdminCheck(int client)
+{
+    /*
+    if(ActivedPartSlotArray[client] == INVALID_HANDLE)
+    {
+        ActivedPartSlotArray[client] = new ArrayList();
+
+    }
+    */
+    MaxPartSlot[client] = MaxPartGlobalSlot;
+    // RefrashPartSlotArray(client);
+}
+
 public void OnClientDisconnect(int client)
 {
     //
-    if(ActivedPartSlotArray[client] != INVALID_HANDLE) // 아마도 될껄?
+    if(enabled && ActivedPartSlotArray[client].Length > 0) // 아마도 될껄?
     {
         RefrashPartSlotArray(client, true);
 
@@ -180,19 +205,18 @@ public void OnClientDisconnect(int client)
             temp = ActivedPartSlotArray[client].Get(target);
             tempPart = temp;
 
-            action = Forward_OnSlotClear(tempClient, tempPart);
+            action = Forward_OnSlotClear(tempClient, tempPart, false);
 
             if(action == Plugin_Handled)
             {
                 maxSlot[remainCount++] = temp;
-                changed = true;
             }
         }
     }
 
     MaxPartSlot[client] = MaxPartGlobalSlot;
     ActivedPartSlotArray[client].Clear();
-    ActivedPartSlotArray[client] = view_as<ArrayList>(INVALID_HANDLE);
+    // ActivedPartSlotArray[client] = view_as<ArrayList>(INVALID_HANDLE);
 }
 
 public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
@@ -204,7 +228,7 @@ public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
 
         // TODO: 이 로직은 라운드가 다른 상태면 비활성화하게 해야함.
 
-        if(ActivedPartSlotArray[client] != INVALID_HANDLE) // 아마도 될껄?
+        if(ActivedPartSlotArray[client].Length > 0) // 아마도 될껄?
         {
             RefrashPartSlotArray(client, true);
 
@@ -218,6 +242,9 @@ public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
             for(int target=0; target<MaxPartSlot[client]; target++)
             {
                 temp = ActivedPartSlotArray[client].Get(target);
+
+                if(!IsValidPart(temp)) continue;
+
                 tempPart = temp;
                 tempGoToNextRound = false;
 
@@ -232,16 +259,18 @@ public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
             }
             // TODO: 잠깐... 최대 파츠 슬릇은..?
             RefrashPartSlotArray(client);
+            MaxPartSlot[client] = MaxPartGlobalSlot;
 
             if(changed)
             {
+                int roundstate = CheckRoundState();
                 for(int target=0; target<MaxPartSlot[client]; target++)
                 {
                     if(target < remainCount && target < MaxPartSlot[client]
                          &&
-                         (!gotoNextRound[target] || (CheckRoundState != 1 && gotoNextRound[target]))
+                         (!gotoNextRound[target] || (roundstate != 1 && gotoNextRound[target]))
                          )
-                        ActivedPartSlotArray.Set(target, maxSlot[target]);
+                        ActivedPartSlotArray[client].Set(target, maxSlot[target]);
                 }
             }
         }
@@ -289,15 +318,12 @@ int SpawnCustomPart(PartRank partRank, float position[3], float velocity[3], boo
     if(IsValidEntity(prop))
     {
         char modelPath[PLATFORM_MAX_PATH];
-        char partAccount[128];
         int colors[4];
 
         GetPartModelString(partRank, modelPath, sizeof(modelPath));
 
         PartPropRank[prop] = partRank;
         PartPropCustomIndex[prop] = 0;
-
-        Debug("생성된 파츠: %s", partAccount);
 
         SetEntityModel(prop, modelPath);
         SetEntityMoveType(prop, MOVETYPE_VPHYSICS);
@@ -312,7 +338,6 @@ int SpawnCustomPart(PartRank partRank, float position[3], float velocity[3], boo
         TF2_SetGlowColor(glow, colors);
 
         TeleportEntity(prop, position, NULL_VECTOR, velocity);
-        // TeleportEntity(prop, position, NULL_VECTOR, NULL_VECTOR);
 
         if(IsFake)
         {
@@ -382,7 +407,7 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
             if(!IsValidPart(part))
                 part = RandomPart(client, rank);
 
-            slot = FindActiveSlots(client);
+            slot = FindActiveSlot(client);
             tempPart = part;
 
             Debug("확정된 파츠: %i, slot = %i, rank = %i", part, slot, view_as<int>(rank));
@@ -560,6 +585,7 @@ public int OnSelectedSlotItem(Menu menu, MenuAction action, int client, int item
       }
       case MenuAction_Select:
       {
+          RefrashPartSlotArray(client, true);
           switch(item)
           {
               case 0:
@@ -611,7 +637,7 @@ int RandomPart(int client, PartRank rank)
                     {
                         count++;
                         parts.Push(part);
-                        Debug("%d 파츠가 랜덤 리스트에 오름. rank = %i, 파츠랭크 = %i", part, view_as<int>(rank), view_as<int>(GetPartRank(part)));
+                        // Debug("%d 파츠가 랜덤 리스트에 오름, 파츠랭크 = %i", part, view_as<int>(GetPartRank(part)));
                     }
                 }
             }
@@ -638,7 +664,7 @@ int RandomPart(int client, PartRank rank)
     }
     parts.Close();
 
-    Debug("%d가 RandomPart에서 반환됨.", answer);
+    // Debug("%d가 RandomPart에서 반환됨.", answer);
     return answer;
 }
 
@@ -681,12 +707,25 @@ bool IsPartActived(int client, int partIndex)
     return ActivedPartSlotArray[client].FindValue(partIndex) != -1;
 }
 
-int FindActiveSlots(int client)
+bool ReplacePartSlot(int client, int beforePartIndex, int afterPartIndex)
+{
+    int slot = ActivedPartSlotArray[client].FindValue(beforePartIndex);
+    if(slot != -1)
+    {
+        ActivedPartSlotArray[client].Set(slot, afterPartIndex);
+        return true;
+    }
+
+    return false;
+}
+
+int FindActiveSlot(int client)
 {
     for(int i = 0;  i < MaxPartSlot[client]; i++)
     {
         int value = ActivedPartSlotArray[client].Get(i);
-        if(value <= 0 && !IsValidPart(value))
+        // Debug("[%i] %d", i, value);
+        if(value <= 0 || !IsValidPart(value))
             return i;
     }
     return -1;
@@ -695,7 +734,9 @@ int FindActiveSlots(int client)
 int GetClientPart(int client, int slot)
 {
     if(IsValidSlot(client, slot))
+    {
         return ActivedPartSlotArray[client].Get(slot);
+    }
 
     return INVALID_PARTID;
 }
@@ -720,9 +761,16 @@ void RefrashPartSlotArray(int client, bool holdParts=false)
     ActivedPartSlotArray[client].Clear();
     ActivedPartSlotArray[client].Resize(MaxPartSlot[client]);
 
+    int part;
+
     for(int count=0; count<MaxPartSlot[client]; count++)
     {
-        if(holdParts && IsValidPart(beforeCell[count])) ActivedPartSlotArray[client].Set(count, beforeCell[count]);
+        if(holdParts)
+        {
+            part = beforeCell[count];
+            if(IsValidPart(part))
+                ActivedPartSlotArray[client].Set(count, part);
+        }
         else ActivedPartSlotArray[client].Set(count, 0);
         // Debug("%N: [%i] %i", client, count, ActivedPartSlotArray[client].Get(count));
     }
@@ -985,6 +1033,16 @@ public Native_SetClientMaxslot(Handle plugin, int numParams)
     SetClientMaxSlot(GetNativeCell(1), GetNativeCell(2));
 }
 
+public Native_ReplacePartSlot(Handle plugin, int numParams)
+{
+    return ReplacePartSlot(GetNativeCell(1), GetNativeCell(2), GetNativeCell(3));
+}
+
+public Native_FindActiveSlot(Handle plugin, int numParams)
+{
+    return FindActiveSlot(GetNativeCell(1));
+}
+
 public Action Forward_OnTouchedPartProp(int client, int prop)
 {
     Action action;
@@ -1010,7 +1068,7 @@ public Action Forward_OnGetPart(int client, int prop, int partIndex)
     Call_StartForward(OnGetPart);
     Call_PushCell(client);
     Call_PushCell(prop);
-    Call_PushCell(part);
+    Call_PushCell(partIndex);
     Call_Finish(action);
 
     return action;
@@ -1020,11 +1078,11 @@ void Forward_OnGetPart_Post(int client, int partIndex)
 {
     Call_StartForward(OnGetPartPost);
     Call_PushCell(client);
-    Call_PushCell(part);
+    Call_PushCell(partIndex);
     Call_Finish();
 }
 
-public Action Forward_OnSlotClear(int client, int partIndex, bool gotoNextRound=false)
+public Action Forward_OnSlotClear(int client, int partIndex, bool gotoNextRound)
 {
     Action action;
     Call_StartForward(OnSlotClear);
