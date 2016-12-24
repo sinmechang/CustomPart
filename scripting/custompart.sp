@@ -39,6 +39,8 @@ public Plugin myinfo = {
 };
 
 Handle PartKV;
+Handle CPHud;
+Handle CPChargeHud;
 Handle cvarChatCommand;
 
 Handle OnTouchedPartProp;
@@ -46,6 +48,8 @@ Handle OnTouchedPartPropPost;
 Handle OnGetPart;
 Handle OnGetPartPost;
 Handle OnSlotClear;
+Handle PreActivePart;
+Handle OnActivedPart;
 
 int g_iChatCommand=0;
 char g_strChatCommand[42][50];
@@ -61,10 +65,14 @@ Handle cvarPropVelocity;
 Handle cvarPropForNoBossTeam;
 Handle cvarPropSize;
 
+int NeedHelpPart;
+int CPFlags[MAXPLAYERS+1];
 int MaxPartSlot[MAXPLAYERS+1];
 int LastSelectedSlot[MAXPLAYERS+1];
 ArrayList ActivedPartSlotArray[MAXPLAYERS+1];
 
+float PartCharge[MAXPLAYERS+1];
+float PartMaxChargeDamage[MAXPLAYERS+1];
 
 // TODO: 최적화
 PartRank PartPropRank[MAX_EDICTS+1];
@@ -85,47 +93,183 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, err_max)
     CreateNative("CP_SetClientMaxSlot", Native_SetClientMaxslot);
     CreateNative("CP_ReplacePartSlot", Native_ReplacePartSlot);
     CreateNative("CP_FindActiveSlot", Native_FindActiveSlot);
+    CreateNative("CP_NoticePart", Native_NoticePart);
 
     OnTouchedPartProp = CreateGlobalForward("CP_OnTouchedPartProp", ET_Hook, Param_Cell, Param_Cell);
     OnTouchedPartPropPost = CreateGlobalForward("CP_OnTouchedPartProp_Post", ET_Hook, Param_Cell, Param_Cell);
     OnGetPart = CreateGlobalForward("CP_OnGetPart", ET_Hook, Param_Cell, Param_Cell, Param_Cell);
     OnGetPartPost = CreateGlobalForward("CP_OnGetPart_Post", ET_Hook, Param_Cell, Param_Cell);
     OnSlotClear = CreateGlobalForward("CP_OnSlotClear", ET_Hook, Param_Cell, Param_Cell, Param_Cell);
+    PreActivePart = CreateGlobalForward("CP_PreActivePart", ET_Hook, Param_Cell, Param_Cell);
+    OnActivedPart = CreateGlobalForward("CP_OnActivedPart", ET_Hook, Param_Cell, Param_Cell);
 
 	return APLRes_Success;
 }
 
 public void OnPluginStart()
 {
-  cvarChatCommand = CreateConVar("cp_chatcommand", "파츠,part,스킬");
+      cvarChatCommand = CreateConVar("cp_chatcommand", "파츠,part,스킬");
 
-  cvarPropCount = CreateConVar("cp_prop_count", "1", "생성되는 프롭 갯수, 0은 생성을 안함", _, true, 0.0);
-  cvarPropVelocity = CreateConVar("cp_prop_velocity", "250.0", "프롭 생성시 흩어지는 최대 속도, 설정한 범위 내로 랜덤으로 속도가 정해집니다.", _, true, 0.0);
-  cvarPropForNoBossTeam = CreateConVar("cp_prop_for_team", "2", "0 혹은 1은 제한 없음, 2는 레드팀에게만, 3은 블루팀에게만. (생성도 포함됨.)", _, true, 0.0, true, 2.0);
-  cvarPropSize = CreateConVar("cp_prop_size", "50.0", "캡슐 섭취 범위", _, true, 0.1);
+      cvarPropCount = CreateConVar("cp_prop_count", "1", "생성되는 프롭 갯수, 0은 생성을 안함", _, true, 0.0);
+      cvarPropVelocity = CreateConVar("cp_prop_velocity", "250.0", "프롭 생성시 흩어지는 최대 속도, 설정한 범위 내로 랜덤으로 속도가 정해집니다.", _, true, 0.0);
+      cvarPropForNoBossTeam = CreateConVar("cp_prop_for_team", "2", "0 혹은 1은 제한 없음, 2는 레드팀에게만, 3은 블루팀에게만. (생성도 포함됨.)", _, true, 0.0, true, 2.0);
+      cvarPropSize = CreateConVar("cp_prop_size", "50.0", "캡슐 섭취 범위", _, true, 0.1);
 
-  RegConsoleCmd("slot", TestSlot);
+      RegConsoleCmd("slot", TestSlot);
 
-  AddCommandListener(Listener_Say, "say");
-  AddCommandListener(Listener_Say, "say_team");
+      AddCommandListener(Listener_Say, "say");
+      AddCommandListener(Listener_Say, "say_team");
 
-  LoadTranslations("custompart");
-  LoadTranslations("common.phrases");
-  LoadTranslations("core.phrases");
+      AddCommandListener(OnCallForMedic, "voicemenu");
 
-  HookEvent("player_spawn", OnPlayerSpawn, EventHookMode_Pre);
-  HookEvent("player_death", OnPlayerDeath);
+      LoadTranslations("custompart");
+      LoadTranslations("common.phrases");
+      LoadTranslations("core.phrases");
 
-  // HookEvent("teamplay_round_start", OnRoundStart);
-  // HookEvent("teamplay_round_win", OnRoundEnd);
+      HookEvent("player_spawn", OnPlayerSpawn, EventHookMode_Pre);
+      HookEvent("player_death", OnPlayerDeath);
 
-  // RegPluginLibrary("custompart");
+      // HookEvent("teamplay_round_start", OnRoundStart);
+      HookEvent("teamplay_round_win", OnRoundEnd);
 
-  for(int client=1; client<=MaxClients; client++)
-  {
-      ActivedPartSlotArray[client] = new ArrayList();
-      ActivedPartSlotArray[client].Resize(50);
-  }
+      CPHud = CreateHudSynchronizer();
+      CPChargeHud = CreateHudSynchronizer();
+
+      CreateTimer(0.2, ClientTimer, _, TIMER_REPEAT);
+
+      for(int client=1; client<=MaxClients; client++)
+      {
+          ActivedPartSlotArray[client] = new ArrayList();
+          ActivedPartSlotArray[client].Resize(50);
+      }
+}
+
+public Action OnRoundEnd(Handle event, const char[] name, bool dont)
+{
+    for(int client=1; client<=MaxClients; client++)
+    {
+        CPFlags[client] = 0;
+    }
+}
+
+public Action ClientTimer(Handle timer)
+{
+    int target;
+    int part;
+    bool hasActivePart = false;
+    char HudMessage[200];
+    char partName[100];
+
+    if(FF2_GetRoundState() != 1)
+        return Plugin_Continue;
+
+    for(int client=1; client<=MaxClients; client++)
+    {
+        hasActivePart = false;
+        if(!IsClientInGame(client)) continue;
+
+        if(!(CPFlags[client] & CPFLAG_DISABLE_HUD))
+        {
+            SetHudTextParams(0.7, 0.17, 0.22, 255, 228, 0, 185);
+
+            if(IsPlayerAlive(client))
+            {
+                target = client;
+                Format(HudMessage, sizeof(HudMessage), "활성화된 파츠:");
+            }
+            else
+            {
+                target = GetEntPropEnt(client, Prop_Send, "m_hObserverTarget");
+                Format(HudMessage, sizeof(HudMessage), "관전중인 상대 파츠:");
+            }
+
+            if(IsValidClient(target))
+            {
+                int partcount = 0;
+                for(int count = 0; count < MaxPartSlot[target]; count++)
+                {
+                    if(IsValidSlot(target, count) && IsValidPart((part = GetClientPart(client, count))))
+                    {
+                        if(IsPartActive(part))
+                            hasActivePart = true;
+
+                        if(partcount <= 5)
+                        {
+                            GetPartString(part, "name", partName, sizeof(partName));
+                            Format(HudMessage, sizeof(HudMessage), "%s\n%s", HudMessage, partName);
+                        }
+
+                        partcount++;
+                    }
+                }
+                if(partcount > 5)
+                {
+                    Format(HudMessage, sizeof(HudMessage), "%s\n.. 그 외 %i개!", HudMessage, partcount - 5);
+                }
+                ShowSyncHudText(client, CPHud, HudMessage);
+
+                // Charge Hud
+
+                if(hasActivePart)
+                {
+                    SetHudTextParams(-1.0, 0.76, 0.22, 255, 228, 0, 185);
+
+                    int ragemeter = RoundFloat(PartCharge[target]*(PartMaxChargeDamage[target]/100.0));
+
+                    if(client == target)
+                    {
+                        if(PartCharge[target] >= 100.0)
+                            Format(HudMessage, sizeof(HudMessage), "메딕을 불러 능력을 발동시키세요!");
+
+                        else
+                            Format(HudMessage, sizeof(HudMessage), "액티브 파츠 충전: %i%% / 100%% (%i / %i)", RoundFloat(PartCharge[target]), ragemeter, RoundFloat(PartMaxChargeDamage[target]));
+
+                    }
+                    else
+                        Format(HudMessage, sizeof(HudMessage), "%N님의 액티브 파츠 충전: %i%% / 100%% (%i / %i)", target, RoundFloat(PartCharge[target]), ragemeter, RoundFloat(PartMaxChargeDamage[target]));
+
+                    ShowSyncHudText(client, CPChargeHud, HudMessage);
+                }
+            }
+        }
+    }
+
+    return Plugin_Continue;
+}
+
+public Action OnCallForMedic(int client, const char[] command, int args)
+{
+    if(FF2_GetRoundState() != 1 && IsClientInGame(client) && IsPlayerAlive(client))
+        return Plugin_Continue;
+
+    char arg1[4]; char arg2[4];
+	GetCmdArg(1, arg1, sizeof(arg1));
+	GetCmdArg(2, arg2, sizeof(arg2));
+	if(StringToInt(arg1) || StringToInt(arg2))  //We only want "voicemenu 0 0"-thanks friagram for pointing out edge cases
+	{
+		return Plugin_Continue;
+	}
+
+    if(PartCharge[client] >= 100.0)
+    {
+        PartCharge[client] = 0.0;
+        Action action;
+        RefrashPartSlotArray(client, true);
+
+        for(int count=0; count<MaxPartSlot[client]; count++)
+        {
+            int part = GetClientPart(client, count);
+            if(IsPartActive(part))
+            {
+                action = Forward_PreActivePart(client, part);
+                if(action == Plugin_Handled)
+                    continue;
+
+                Forward_OnActivedPart(client, part);
+            }
+        }
+    }
+    return Plugin_Continue;
 }
 
 public Action TestSlot(int client, int args)
@@ -156,6 +300,8 @@ public void OnMapStart()
 
     for(int client=1; client<=MaxClients; client++)
     {
+        CPFlags[client] = 0;
+
         if(IsClientInGame(client))
             RefrashPartSlotArray(client);
     }
@@ -190,7 +336,6 @@ public OnClientPostAdminCheck(int client)
 
 public void OnClientDisconnect(int client)
 {
-    //
     if(enabled && ActivedPartSlotArray[client].Length > 0) // 아마도 될껄?
     {
         RefrashPartSlotArray(client, true);
@@ -216,6 +361,7 @@ public void OnClientDisconnect(int client)
 
     MaxPartSlot[client] = MaxPartGlobalSlot;
     ActivedPartSlotArray[client].Clear();
+    SDKUnhook(client, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
     // ActivedPartSlotArray[client] = view_as<ArrayList>(INVALID_HANDLE);
 }
 
@@ -225,8 +371,6 @@ public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
     {
         int client = GetClientOfUserId(GetEventInt(event, "userid"));
         bool changed = false;
-
-        // TODO: 이 로직은 라운드가 다른 상태면 비활성화하게 해야함.
 
         if(ActivedPartSlotArray[client].Length > 0) // 아마도 될껄?
         {
@@ -257,9 +401,11 @@ public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
                     changed = true;
                 }
             }
-            // TODO: 잠깐... 최대 파츠 슬릇은..?
+
             RefrashPartSlotArray(client);
             MaxPartSlot[client] = MaxPartGlobalSlot;
+            PartCharge[client] = 0.0;
+            PartMaxChargeDamage[client] = 0.0;
 
             if(changed)
             {
@@ -270,7 +416,13 @@ public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
                          &&
                          (!gotoNextRound[target] || (roundstate != 1 && gotoNextRound[target]))
                          )
-                        ActivedPartSlotArray[client].Set(target, maxSlot[target]);
+                         {
+                             ActivedPartSlotArray[client].Set(target, maxSlot[target]);
+                             Forward_OnGetPart_Post(client, maxSlot[target]);
+
+                             if(IsPartActive(maxSlot[target]))
+                                 PartMaxChargeDamage[client] += GetPartMaxChargeDamage(maxSlot[target]);
+                         }
                 }
             }
         }
@@ -278,6 +430,25 @@ public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
         {
             MaxPartSlot[client] = MaxPartGlobalSlot;
             RefrashPartSlotArray(client);
+            PartCharge[client] = 0.0;
+            PartMaxChargeDamage[client] = 0.0;
+        }
+
+        SDKHook(client, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
+    }
+}
+
+public void OnTakeDamagePost(int client, int attacker, int inflictor, float damage, int damagetype)
+{
+    if(IsClientInGame(client) && IsClientInGame(attacker) && IsPlayerAlive(attacker))
+    {
+        if(PartMaxChargeDamage[attacker] > 0.0)
+        {
+            float realDamage = damage;
+            if(damagetype & DMG_CRIT)
+                realDamage *= 3.0;
+
+            AddPartCharge(attacker, realDamage*100.0/PartMaxChargeDamage[attacker]);
         }
     }
 }
@@ -285,6 +456,7 @@ public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
 public Action OnPlayerDeath(Handle event, const char[] name, bool dont)
 {
     int client = GetClientOfUserId(GetEventInt(event, "userid"));
+    SDKUnhook(client, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
 
   	if(!enabled || !IsCorrectTeam(client) || CheckRoundState() != 1)
   	{
@@ -436,6 +608,9 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
             ViewPart(client, slot);
             PrintCenterText(client, "파츠를 흭득하셨습니다!");
 
+            if(IsPartActive(part))
+                PartMaxChargeDamage[client] += GetPartMaxChargeDamage(part);
+
 			AcceptEntityInput(entity, "kill");
 			return Plugin_Handled;
 		}
@@ -508,9 +683,7 @@ public Action Listener_Say(int client, const char[] command, int argc)
 		}
 	}
 
-
 	return Plugin_Continue;
-
 }
 
 void ViewPart(int client, int slot=0)
@@ -533,16 +706,16 @@ void ViewPart(int client, int slot=0)
         // menu.AddItem("name", item, ITEMDRAW_DISABLED);
 
         GetPartString(part, "description", tempItem, sizeof(tempItem));
-        Format(item, sizeof(item), "%s\n설명: %s", item, tempItem);
+        Format(item, sizeof(item), "%s\n\n설명: %s", item, tempItem);
         // menu.AddItem("description", item, ITEMDRAW_DISABLED);
 
         GetPartString(part, "ability_description", tempItem, sizeof(tempItem));
-        Format(item, sizeof(item), "%s\n능력 설명: %s", item, tempItem);
+        Format(item, sizeof(item), "%s\n\n능력 설명: %s", item, tempItem);
         // menu.AddItem("ability_description", item, ITEMDRAW_DISABLED);
 
         GetPartString(part, "idea_owner_nickname", tempItem, sizeof(tempItem));
-        if(tempItem[0] != '\0') Format(item, sizeof(item), "%s\n아이디어 제공: %s\n\n", item, tempItem);
-        else Format(item, sizeof(item), "%s\nPOTRY SERVER ORIGINAL CUSTOMPART\n\n", item);
+        if(tempItem[0] != '\0') Format(item, sizeof(item), "%s\n\n아이디어 제공: %s\n\n", item, tempItem);
+        else Format(item, sizeof(item), "%s\n\nPOTRY SERVER ORIGINAL CUSTOMPART\n\n", item);
         // menu.AddItem("idea_owner_nickname", item, ITEMDRAW_DISABLED);
 
         menu.SetTitle(item);
@@ -702,6 +875,25 @@ PartRank RandomPartRank()
     return rank;
 }
 
+void NoticePart(int client, int partIndex)
+{
+    char partName[100];
+    GetPartString(partIndex, "name", partName, sizeof(partName));
+
+    CPrintToChatAll("{yellow}[CP]{default} {red}%N{default}님의 {limegreen}%s{default} 발동!", client, partName);
+    NeedHelpPart = partIndex;
+}
+
+void AddPartCharge(int client, float charge)
+{
+    PartCharge[client] += charge;
+
+    if(PartCharge[client] > 100.0)
+        PartCharge[client] = 100.0;
+    else if(PartCharge[client] < 0.0)
+        PartCharge[client] = 0.0;
+}
+
 bool IsPartActived(int client, int partIndex)
 {
     return ActivedPartSlotArray[client].FindValue(partIndex) != -1;
@@ -747,6 +939,18 @@ void SetClientPart(int client, int slot, int value) // return: 적용된 슬릇 
 
     ActivedPartSlotArray[client].Set(slot, value);
 }
+/*
+bool RemoveClientPart(int client, int slot)
+{
+    int slot = ActivedPartSlotArray[client].FindValue(partIndex);
+    if(slot >= 0)
+    {
+        ActivedPartSlotArray[client].Set(slot, 0);
+        return
+    }
+
+}
+*/
 
 void RefrashPartSlotArray(int client, bool holdParts=false)
 {
@@ -797,6 +1001,26 @@ bool IsValidSlot(int client, int slot)
         return true;
 
     return false;
+}
+
+bool IsPartActive(int partIndex)
+{
+    if(IsValidPart(partIndex))
+    {
+        return KvGetNum(PartKV, "active_part", 0) > 0;
+    }
+
+    return false;
+}
+
+float GetPartMaxChargeDamage(int partIndex)
+{
+    if(IsValidPart(partIndex))
+    {
+        return KvGetFloat(PartKV, "active_max_charge", 100.0);
+    }
+
+    return 0.0;
 }
 
 PartRank GetPartRank(int partIndex)
@@ -1043,6 +1267,11 @@ public Native_FindActiveSlot(Handle plugin, int numParams)
     return FindActiveSlot(GetNativeCell(1));
 }
 
+public Native_NoticePart(Handle plugin, int numParams)
+{
+    NoticePart(GetNativeCell(1), GetNativeCell(2));
+}
+
 public Action Forward_OnTouchedPartProp(int client, int prop)
 {
     Action action;
@@ -1092,6 +1321,25 @@ public Action Forward_OnSlotClear(int client, int partIndex, bool gotoNextRound)
     Call_Finish(action);
 
     return action;
+}
+
+public Action Forward_PreActivePart(int client, int partIndex)
+{
+    Action action;
+    Call_StartForward(PreActivePart);
+    Call_PushCell(client);
+    Call_PushCell(partIndex);
+    Call_Finish(action);
+
+    return action;
+}
+
+public void Forward_OnActivedPart(int client, int partIndex)
+{
+    Call_StartForward(OnActivedPart);
+    Call_PushCell(client);
+    Call_PushCell(partIndex);
+    Call_Finish();
 }
 
 int GetClientMaxSlot(int client)

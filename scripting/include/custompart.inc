@@ -1,5 +1,6 @@
 
 #define CPFLAG_DONOTCLEARSLOT (1<<1)
+#define CPFLAG_DISABLE_HUD (1<<2)
 
 enum PartRank
 {
@@ -165,6 +166,16 @@ native bool CP_ReplacePartSlot(int client, int beforePartIndex, int afterPartInd
 native int CP_FindActiveSlot(int client);
 
 /*
+*   해당 클라이언트의 파츠 발동을 알리는 함수.
+*
+*   @param client 클라이언트
+*   @param partIndex 알릴 파츠
+*   @noreturn
+*
+*/
+native void CP_NoticePart(int client, int partIndex);
+
+/*
 *
 *
 *
@@ -198,3 +209,17 @@ forward void CP_OnGetPart_Post(int client, int partIndex);
 *
 */
 forward Action CP_OnSlotClear(int client, int partIndex, bool gotoNextRound);
+
+/*
+*
+*
+*
+*/
+forward Action CP_PreActivePart(int client, int partIndex);
+
+/*
+*
+*
+*
+*/
+forward void CP_OnActivedPart(int client, int partIndex);
