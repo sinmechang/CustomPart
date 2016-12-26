@@ -70,9 +70,11 @@ int CPFlags[MAXPLAYERS+1];
 int MaxPartSlot[MAXPLAYERS+1];
 int LastSelectedSlot[MAXPLAYERS+1];
 ArrayList ActivedPartSlotArray[MAXPLAYERS+1];
+ArrayList ActivedDurationArray[MAXPLAYERS+1];
 
 float PartCharge[MAXPLAYERS+1];
 float PartMaxChargeDamage[MAXPLAYERS+1];
+float PartCooldown[MAXPLAYERS+1];
 
 // TODO: 최적화
 PartRank PartPropRank[MAX_EDICTS+1];
@@ -141,8 +143,31 @@ public void OnPluginStart()
       {
           ActivedPartSlotArray[client] = new ArrayList();
           ActivedPartSlotArray[client].Resize(50);
+
+          ActivedDurationArray[client] = new ArrayList();
+          ActivedDurationArray[client].Resize(50);
       }
 }
+
+/*
+public void OnGameFrame()
+{
+    if(CheckRoundState() != 1) return;
+
+    for(int client=1; client<=MaxClients; client++)
+    {
+        if(!IsClientInGame(client)
+        || ActivedDurationArray[client] == INVALID_HANDLE
+        || ActivedPartSlotArray[client] == INVALID_HANDLE)
+        continue;
+
+        if(IsPlayerAlive(client))
+        {
+            if()
+        }
+    }
+}
+*/
 
 public Action OnRoundEnd(Handle event, const char[] name, bool dont)
 {
@@ -160,7 +185,7 @@ public Action ClientTimer(Handle timer)
     char HudMessage[200];
     char partName[100];
 
-    if(FF2_GetRoundState() != 1)
+    if(CheckRoundState() != 1)
         return Plugin_Continue;
 
     for(int client=1; client<=MaxClients; client++)
@@ -170,7 +195,7 @@ public Action ClientTimer(Handle timer)
 
         if(!(CPFlags[client] & CPFLAG_DISABLE_HUD))
         {
-            SetHudTextParams(0.7, 0.17, 0.22, 255, 228, 0, 185);
+            SetHudTextParams(0.8, 0.1, 0.22, 255, 228, 0, 185);
 
             if(IsPlayerAlive(client))
             {
@@ -180,7 +205,7 @@ public Action ClientTimer(Handle timer)
             else
             {
                 target = GetEntPropEnt(client, Prop_Send, "m_hObserverTarget");
-                Format(HudMessage, sizeof(HudMessage), "관전중인 상대 파츠:");
+                Format(HudMessage, sizeof(HudMessage), "관전 중인 상대 파츠:");
             }
 
             if(IsValidClient(target))
@@ -188,7 +213,7 @@ public Action ClientTimer(Handle timer)
                 int partcount = 0;
                 for(int count = 0; count < MaxPartSlot[target]; count++)
                 {
-                    if(IsValidSlot(target, count) && IsValidPart((part = GetClientPart(client, count))))
+                    if(IsValidSlot(target, count) && IsValidPart((part = GetClientPart(target, count))))
                     {
                         if(IsPartActive(part))
                             hasActivePart = true;
@@ -216,18 +241,55 @@ public Action ClientTimer(Handle timer)
 
                     int ragemeter = RoundFloat(PartCharge[target]*(PartMaxChargeDamage[target]/100.0));
 
-                    if(client == target)
+                    if(GetClientPartCooldown(target) > 0.0)
                     {
-                        if(PartCharge[target] >= 100.0)
-                            Format(HudMessage, sizeof(HudMessage), "메딕을 불러 능력을 발동시키세요!");
+                        Format(HudMessage, sizeof(HudMessage), "액티브 파츠 쿨타임: %.1f", GetClientPartCooldown(target));
+                    }
+                    else if(IsClientHaveDuration(target))
+                    {
+                        int activeCount=0;
 
-                        else
-                            Format(HudMessage, sizeof(HudMessage), "액티브 파츠 충전: %i%% / 100%% (%i / %i)", RoundFloat(PartCharge[target]), ragemeter, RoundFloat(PartMaxChargeDamage[target]));
+                        for(int count=0; count<MaxPartSlot[target]; count++)
+                        {
+                            if(GetClientActiveSlotDuration(target, count) > 0.0 && IsValidPart((part = GetClientPart(target, count))))
+                            {
+                                GetPartString(part, "name", partName, sizeof(partName));
+                                if(activeCount == 0)
+                                {
+                                    Format(HudMessage, sizeof(HudMessage), "%s: %.1f |", partName, GetClientActiveSlotDuration(target, count));
+                                }
+                                else if(activeCount < 2)
+                                {
+                                    Format(HudMessage, sizeof(HudMessage), "%s %s: %.1f |", HudMessage, partName, GetClientActiveSlotDuration(target, count));
+                                }
 
+                                activeCount++;
+                            }
+                        }
+
+                        if(activeCount > 2)
+                        {
+                            Format(HudMessage, sizeof(HudMessage), "%s 그 외 %i개!", HudMessage, activeCount - 2);
+                        }
                     }
                     else
-                        Format(HudMessage, sizeof(HudMessage), "%N님의 액티브 파츠 충전: %i%% / 100%% (%i / %i)", target, RoundFloat(PartCharge[target]), ragemeter, RoundFloat(PartMaxChargeDamage[target]));
-
+                    {
+                        if(client == target)
+                        {
+                            if(PartCharge[target] >= 100.0)
+                            {
+                                Format(HudMessage, sizeof(HudMessage), "메딕을 불러 능력을 발동시키세요!");
+                            }
+                            else
+                            {
+                                Format(HudMessage, sizeof(HudMessage), "액티브 파츠 충전: %i%% / 100%% (%i / %i)", RoundFloat(PartCharge[target]), ragemeter, RoundFloat(PartMaxChargeDamage[target]));
+                            }
+                        }
+                        else
+                        {
+                            Format(HudMessage, sizeof(HudMessage), "%N님의 액티브 파츠 충전: %i%% / 100%% (%i / %i)", target, RoundFloat(PartCharge[target]), ragemeter, RoundFloat(PartMaxChargeDamage[target]));
+                        }
+                    }
                     ShowSyncHudText(client, CPChargeHud, HudMessage);
                 }
             }
@@ -239,7 +301,7 @@ public Action ClientTimer(Handle timer)
 
 public Action OnCallForMedic(int client, const char[] command, int args)
 {
-    if(FF2_GetRoundState() != 1 && IsClientInGame(client) && IsPlayerAlive(client))
+    if(CheckRoundState() != 1 && IsClientInGame(client) && IsPlayerAlive(client))
         return Plugin_Continue;
 
     char arg1[4]; char arg2[4];
@@ -250,11 +312,13 @@ public Action OnCallForMedic(int client, const char[] command, int args)
 		return Plugin_Continue;
 	}
 
-    if(PartCharge[client] >= 100.0)
+    if(PartCharge[client] >= 100.0 && !IsClientHaveDuration(client) && GetClientPartCooldown(client) <= 0.0)
     {
         PartCharge[client] = 0.0;
         Action action;
-        RefrashPartSlotArray(client, true);
+        RefrashPartSlotArray(client, true, true);
+
+        PartCooldown[client] = GetClientTotalCooldown(client);
 
         for(int count=0; count<MaxPartSlot[client]; count++)
         {
@@ -265,21 +329,27 @@ public Action OnCallForMedic(int client, const char[] command, int args)
                 if(action == Plugin_Handled)
                     continue;
 
+                SetClientActiveSlotDuration(client, slot, GetActivePartDuration(part));
                 Forward_OnActivedPart(client, part);
             }
         }
+    }
+    else
+    {
+        CPrintToChat(client, "{yellow}[CP]{default} 지금은 사용하실 수 없습니다.");
     }
     return Plugin_Continue;
 }
 
 public Action TestSlot(int client, int args)
 {
-    RefrashPartSlotArray(client, true);
+    RefrashPartSlotArray(client, true, true);
     CPrintToChatAll("%N's slot. size = %i, MaxPartSlot = %i", client, ActivedPartSlotArray[client].Length, MaxPartSlot[client]);
 
     for(int count = 0; count < MaxPartSlot[client]; count++)
     {
         CPrintToChatAll("[%i] %i", count, ActivedPartSlotArray[client].Get(count));
+        CPrintToChatAll("[%i] 지속시간: %.1f", count, ActivedDurationArray[client].Get(count));
     }
 }
 
@@ -359,8 +429,11 @@ public void OnClientDisconnect(int client)
         }
     }
 
+    PartCooldown[client] = 0.0;
+
     MaxPartSlot[client] = MaxPartGlobalSlot;
     ActivedPartSlotArray[client].Clear();
+    ActivedDurationArray[client].Clear();
     SDKUnhook(client, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
     // ActivedPartSlotArray[client] = view_as<ArrayList>(INVALID_HANDLE);
 }
@@ -405,6 +478,7 @@ public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
             RefrashPartSlotArray(client);
             MaxPartSlot[client] = MaxPartGlobalSlot;
             PartCharge[client] = 0.0;
+            PartCooldown[client] = 0.0;
             PartMaxChargeDamage[client] = 0.0;
 
             if(changed)
@@ -431,6 +505,7 @@ public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
             MaxPartSlot[client] = MaxPartGlobalSlot;
             RefrashPartSlotArray(client);
             PartCharge[client] = 0.0;
+            PartCooldown[client] = 0.0;
             PartMaxChargeDamage[client] = 0.0;
         }
 
@@ -440,7 +515,7 @@ public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
 
 public void OnTakeDamagePost(int client, int attacker, int inflictor, float damage, int damagetype)
 {
-    if(IsClientInGame(client) && IsClientInGame(attacker) && IsPlayerAlive(attacker))
+    if(IsValidClient(client) && IsValidClient(attacker) && IsPlayerAlive(attacker))
     {
         if(PartMaxChargeDamage[attacker] > 0.0)
         {
@@ -720,6 +795,12 @@ void ViewPart(int client, int slot=0)
 
         menu.SetTitle(item);
 
+        menu.AddItem("", item, ITEMDRAW_IGNORE);
+        menu.AddItem("", item, ITEMDRAW_IGNORE);
+        menu.AddItem("", item, ITEMDRAW_IGNORE);
+        menu.AddItem("", item, ITEMDRAW_IGNORE);
+        menu.AddItem("", item, ITEMDRAW_IGNORE);
+
         int itemFlags;
         if(slot - 1 >= 0)
             Format(item, sizeof(item), "이전 슬릇으로");
@@ -758,14 +839,14 @@ public int OnSelectedSlotItem(Menu menu, MenuAction action, int client, int item
       }
       case MenuAction_Select:
       {
-          RefrashPartSlotArray(client, true);
+          RefrashPartSlotArray(client, true, true);
           switch(item)
           {
-              case 0:
+              case 5:
               {
                 ViewPart(client, LastSelectedSlot[client]-1);
               }
-              case 1:
+              case 6:
               {
                 ViewPart(client, LastSelectedSlot[client]+1);
               }
@@ -952,18 +1033,24 @@ bool RemoveClientPart(int client, int slot)
 }
 */
 
-void RefrashPartSlotArray(int client, bool holdParts=false)
+void RefrashPartSlotArray(int client, bool holdParts=false, bool holdCooltime=false)
 {
     int beforeSize = ActivedPartSlotArray[client].Length;
+
     int[] beforeCell = new int[beforeSize]
+    float[] beforeCooltime = new float[beforeSize]
 
     for(int count=0; count<beforeSize; count++)
     {
         beforeCell[count] = ActivedPartSlotArray[client].Get(count);
+        beforeCooltime[count] = ActivedDurationArray[client].Get(count);
     }
 
     ActivedPartSlotArray[client].Clear();
     ActivedPartSlotArray[client].Resize(MaxPartSlot[client]);
+
+    ActivedDurationArray[client].Clear();
+    ActivedDurationArray[client].Resize(MaxPartSlot[client]);
 
     int part;
 
@@ -972,10 +1059,23 @@ void RefrashPartSlotArray(int client, bool holdParts=false)
         if(holdParts)
         {
             part = beforeCell[count];
+            cooltime = beforeCooltime[count];
+
             if(IsValidPart(part))
+            {
                 ActivedPartSlotArray[client].Set(count, part);
+
+                if(holdCooltime)
+                    ActivedDurationArray[client].Set(count, cooltime);
+            }
+
         }
-        else ActivedPartSlotArray[client].Set(count, 0);
+        else
+        {
+            ActivedPartSlotArray[client].Set(count, 0);
+            ActivedDurationArray[client].Set(count, 0.0);
+
+        }
         // Debug("%N: [%i] %i", client, count, ActivedPartSlotArray[client].Get(count));
     }
 
@@ -997,7 +1097,9 @@ bool IsValidPart(int partIndex)
 
 bool IsValidSlot(int client, int slot)
 {
-    if(MaxPartSlot[client] > slot && slot >= 0)
+    if(MaxPartSlot[client] > slot
+        && ActivedPartSlotArray[client].Length > slot
+        && slot >= 0)
         return true;
 
     return false;
@@ -1008,6 +1110,90 @@ bool IsPartActive(int partIndex)
     if(IsValidPart(partIndex))
     {
         return KvGetNum(PartKV, "active_part", 0) > 0;
+    }
+
+    return false;
+}
+
+float GetClientTotalCooldown(int client)
+{
+    int part;
+    float totalCooldown;
+
+    for(int count=0; count<MaxPartSlot[client]; count++)
+    {
+        if(IsValidSlot(count) && IsValidPart((part = GetClientPart(client, count))))
+        {
+            totalCooldown += GetActivePartDuration(part)
+        }
+    }
+
+    return totalCooldown;
+}
+
+float GetClientPartCooldown(int client)
+{
+    float cooldown = PartCooldown[client] - GetGameTime();
+    return cooldown > 0.0 ? cooldown : 0.0;
+}
+
+void SetClientPartCooldown(int client, float cooldown)
+{
+    float realCooldown = duration + GetGameTime();
+    PartCooldown[client] = realCooldown;
+}
+
+float GetActivePartDuration(int partIndex)
+{
+    if(IsValidPart(partIndex))
+    {
+        return KvGetFloat(PartKV, "active_duration", 8.0);
+    }
+
+    return 0.0;
+}
+
+float GetActivePartCooldown(int partIndex)
+{
+    if(IsValidPart(partIndex))
+    {
+        return KvGetFloat(PartKV, "active_cooldown", 8.0);
+    }
+
+    return 0.0;
+}
+
+float GetClientActiveSlotDuration(int client, int slot)
+{
+    if(IsValidSlot(slot))
+    {
+        float duration = ActivedDurationArray[client].Get(slot) - GetGameTime();
+        return duration > 0.0 ? duration : 0.0;
+    }
+
+    return 0.0;
+}
+
+void SetClientActiveSlotDuration(int client, int slot, float duration)
+{
+    if(IsValidSlot(slot))
+    {
+        float realDuration = duration + GetGameTime();
+        ActivedDurationArray[client].Set(slot, realDuration);
+    }
+}
+
+bool IsClientHaveDuration(int client)
+{
+    float duration;
+
+    for(int count=0; count<MaxPartSlot[client]; count++)
+    {
+        if(IsValidSlot(count))
+        {
+            if(ActivedDurationArray[client].Get(count) > GetGameTime())
+                return true;
+        }
     }
 
     return false;
@@ -1219,7 +1405,7 @@ public Native_IsPartActived(Handle plugin, int numParams)
 
 public Native_RefrashPartSlotArray(Handle plugin, int numParams)
 {
-    RefrashPartSlotArray(GetNativeCell(1), GetNativeCell(2));
+    RefrashPartSlotArray(GetNativeCell(1), GetNativeCell(2), GetNativeCell(3));
 }
 
 public Native_IsValidPart(Handle plugin, int numParams)

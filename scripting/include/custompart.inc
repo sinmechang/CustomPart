@@ -60,10 +60,12 @@ native bool CP_IsPartActived(int client, int partIndex);
 * @param client 지정할 클라이언트
 * @param holdParts 새로고침 하면서 원래 있던 파츠를 유지할 것인지 지정.
 *   - 기본은 false, 만약 유지한다면 반드시 true로 지정할 것.
+* @param holdCooltime 새로고침하면서 원래 있던 쿨타임을 유지시킬지 지정.
+*   - 기본은 false, 만약 유지한다면 반드시 true로 지정할 것.
 * @noreturn
 *
 */
-native void CP_RefrashPartSlotArray(int client, bool holdParts=false);
+native void CP_RefrashPartSlotArray(int client, bool holdParts=false, bool holdCooltime=false);
 
 /*
 * 해당 파츠가 유효한지 확인함.
