@@ -50,8 +50,6 @@ Handle OnGetPartPost;
 Handle OnSlotClear;
 Handle PreActivePart;
 Handle OnActivedPart;
-Handle OnActivedPartEnd;
-Handle OnClientCooldownEnd;
 
 int g_iChatCommand=0;
 char g_strChatCommand[42][50];
@@ -99,16 +97,6 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, err_max)
     CreateNative("CP_FindActiveSlot", Native_FindActiveSlot);
     CreateNative("CP_NoticePart", Native_NoticePart);
 
-    CreateNative("CP_GetClientActiveSlotDuration", Native_GetClientActiveSlotDuration);
-    CreateNative("CP_SetClientActiveSlotDuration", Native_SetClientActiveSlotDuration);
-    CreateNative("CP_GetClientTotalCooldown", Native_GetClientTotalCooldown);
-    CreateNative("CP_GetClientPartCharge", Native_GetClientPartCharge);
-    CreateNative("CP_SetClientPartCharge", Native_SetClientPartCharge);
-    CreateNative("CP_GetClientPartMaxChargeDamage", Native_GetClientPartMaxChargeDamage);
-    CreateNative("CP_SetClientPartMaxChargeDamage", Native_SetClientPartMaxChargeDamage);
-    CreateNative("CP_AddClientPartCharge", Native_AddClientPartCharge);
-    CreateNative("CP_FindPart", Native_FindPart);
-
     OnTouchedPartProp = CreateGlobalForward("CP_OnTouchedPartProp", ET_Hook, Param_Cell, Param_Cell);
     OnTouchedPartPropPost = CreateGlobalForward("CP_OnTouchedPartProp_Post", ET_Hook, Param_Cell, Param_Cell);
     OnGetPart = CreateGlobalForward("CP_OnGetPart", ET_Hook, Param_Cell, Param_Cell, Param_Cell);
@@ -116,8 +104,6 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, err_max)
     OnSlotClear = CreateGlobalForward("CP_OnSlotClear", ET_Hook, Param_Cell, Param_Cell, Param_Cell);
     PreActivePart = CreateGlobalForward("CP_PreActivePart", ET_Hook, Param_Cell, Param_Cell);
     OnActivedPart = CreateGlobalForward("CP_OnActivedPart", ET_Hook, Param_Cell, Param_Cell);
-    OnActivedPartEnd = CreateGlobalForward("CP_OnActivedPart", ET_Hook, Param_Cell, Param_Cell);
-    OnClientCooldownEnd = CreateGlobalForward("CP_OnClientCooldownEnd", ET_Hook, Param_Cell);
 
 	return APLRes_Success;
 }
@@ -131,8 +117,7 @@ public void OnPluginStart()
       cvarPropForNoBossTeam = CreateConVar("cp_prop_for_team", "2", "0 혹은 1은 제한 없음, 2는 레드팀에게만, 3은 블루팀에게만. (생성도 포함됨.)", _, true, 0.0, true, 2.0);
       cvarPropSize = CreateConVar("cp_prop_size", "50.0", "캡슐 섭취 범위", _, true, 0.1);
 
-      RegAdminCmd("slot", TestSlot, ADMFLAG_CHEATS, "");
-      RegAdminCmd("givemepart", GivePart, ADMFLAG_CHEATS, "");
+      RegConsoleCmd("slot", TestSlot);
 
       AddCommandListener(Listener_Say, "say");
       AddCommandListener(Listener_Say, "say_team");
@@ -164,34 +149,10 @@ public void OnPluginStart()
       }
 }
 
-
-public Action GivePart(int client, int args)
-{
-    RefrashPartSlotArray(client, true, true);
-    char num[40];
-    int part;
-    GetCmdArgString(num, sizeof(num));
-
-    part = StringToInt(num);
-    if(IsValidPart(part))
-    {
-        int slot = FindActiveSlot(client);
-        if(IsValidSlot(client, slot))
-        {
-            SetClientPart(client, slot, part);
-            PartMaxChargeDamage[client] += GetPartMaxChargeDamage(part);
-            Forward_OnGetPart_Post(client, part);
-            CPrintToChat(client, "{yellow}[CP]{default} %N에게 %i가 추가됨.", client, part);
-        }
-    }
-}
-
+/*
 public void OnGameFrame()
 {
     if(CheckRoundState() != 1) return;
-
-    float duration;
-    // int part;
 
     for(int client=1; client<=MaxClients; client++)
     {
@@ -202,35 +163,11 @@ public void OnGameFrame()
 
         if(IsPlayerAlive(client))
         {
-            if(IsClientHaveDuration(client))
-            {
-                for(int count=0; count<MaxPartSlot[count]; count++)
-                {
-                    duration = GetClientActiveSlotDuration(client, count);
-                    if(duration != -1.0 && duration <= 0.0)
-                    {
-                        SetClientActiveSlotDuration(client, count, -1.0);
-                        Forward_OnActivedPartEnd(client, GetClientPart(client, count));
-                    }
-                }
-
-                if(!IsClientHaveDuration(client)) // 능력 지속시간이 끝났을 경우, 쿨타임 부여
-                {
-                    PartCooldown[client] = GetClientTotalCooldown(client) + GetGameTime();
-                }
-            }
-            else
-            {
-                if(PartCooldown[client] != -1.0 && PartCooldown[client] <= GetGameTime())
-                {
-                    PartCooldown[client] = -1.0;
-                    Forward_OnClientCooldownEnd(client);
-                }
-            }
+            if()
         }
     }
 }
-
+*/
 
 public Action OnRoundEnd(Handle event, const char[] name, bool dont)
 {
@@ -381,7 +318,7 @@ public Action OnCallForMedic(int client, const char[] command, int args)
         Action action;
         RefrashPartSlotArray(client, true, true);
 
-        // PartCooldown[client] = GetClientTotalCooldown(client);
+        PartCooldown[client] = GetClientTotalCooldown(client);
 
         for(int count=0; count<MaxPartSlot[client]; count++)
         {
@@ -392,7 +329,7 @@ public Action OnCallForMedic(int client, const char[] command, int args)
                 if(action == Plugin_Handled)
                     continue;
 
-                SetClientActiveSlotDuration(client, count, GetActivePartDuration(part));
+                SetClientActiveSlotDuration(client, slot, GetActivePartDuration(part));
                 Forward_OnActivedPart(client, part);
             }
         }
@@ -456,7 +393,15 @@ void ChangeChatCommand()
 
 public OnClientPostAdminCheck(int client)
 {
+    /*
+    if(ActivedPartSlotArray[client] == INVALID_HANDLE)
+    {
+        ActivedPartSlotArray[client] = new ArrayList();
+
+    }
+    */
     MaxPartSlot[client] = MaxPartGlobalSlot;
+    // RefrashPartSlotArray(client);
 }
 
 public void OnClientDisconnect(int client)
@@ -474,8 +419,6 @@ public void OnClientDisconnect(int client)
         {
             temp = ActivedPartSlotArray[client].Get(target);
             tempPart = temp;
-
-            if(!IsValidPart(tempPart)) continue;
 
             action = Forward_OnSlotClear(tempClient, tempPart, false);
 
@@ -535,7 +478,7 @@ public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
             RefrashPartSlotArray(client);
             MaxPartSlot[client] = MaxPartGlobalSlot;
             PartCharge[client] = 0.0;
-            PartCooldown[client] = -1.0;
+            PartCooldown[client] = 0.0;
             PartMaxChargeDamage[client] = 0.0;
 
             if(changed)
@@ -706,7 +649,7 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
         || (IsBoss(client) && CanUseSystemBoss() && rank == Rank_Another))
         )
 		{
-            RefrashPartSlotArray(client, true, true);
+            RefrashPartSlotArray(client, true);
             part = GetPartPropInfo(entity, Info_CustomIndex);
             if(!IsValidPart(part))
                 part = RandomPart(client, rank);
@@ -737,7 +680,7 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
             Forward_OnGetPart_Post(client, tempPart);
 
             SetClientPart(client, slot, part);
-            ViewSlotPart(client, slot);
+            ViewPart(client, slot);
             PrintCenterText(client, "파츠를 흭득하셨습니다!");
 
             if(IsPartActive(part))
@@ -791,7 +734,7 @@ public Action Listener_Say(int client, const char[] command, int argc)
 	if(!IsValidClient(client)) return Plugin_Continue;
 
 	char strChat[100];
-	char temp[3][64];
+	char temp[2][64];
 	GetCmdArgString(strChat, sizeof(strChat));
 
 	int start;
@@ -799,7 +742,7 @@ public Action Listener_Say(int client, const char[] command, int argc)
 	if(strChat[start] == '"') start++;
 	if(strChat[start] == '!' || strChat[start] == '/') start++;
 	strChat[strlen(strChat)-1] = '\0';
-	ExplodeString(strChat[start], " ", temp, 3, 64, true);
+	ExplodeString(strChat[start], " ", temp, 2, 64, true);
 
 	for (int i=0; i<=g_iChatCommand; i++)
 	{
@@ -807,99 +750,18 @@ public Action Listener_Say(int client, const char[] command, int argc)
 		{
 			if(temp[1][0] != '\0')
 			{
-				return Plugin_Continue;
+				return Plugin_Handled;
 			}
 
-			ViewSlotPart(client);
+			ViewPart(client);
 			return Plugin_Handled;
 		}
 	}
 
-    if(StrEqual(temp[0], "파츠도감", true)
-    || StrEqual(temp[0], "partbook", true)
-    || StrEqual(temp[0], "partinfo", true))
-    {
-        if(temp[1][0] != '\0')
-        {
-            return Plugin_Continue;
-        }
-
-        ViewPartBook(client);
-        return Plugin_Handled;
-    }
-
 	return Plugin_Continue;
 }
 
-void ViewPartBook(int client)
-{
-    char partName[80];
-    char item[500];
-    char tempItem[200];
-    int part;
-/*
-    if(findPartName[0] != '\0')
-    {
-        int count = GetValidPartCount();
-        int answer;
-        int answerCount;
-        int[] partArray = new int[count]
-
-        GetValidPartArray(partArray, count);
-
-        for(int i=0; i<count; i++)
-        {
-            GetPartString(partArray[i], "name", partName, sizeof(partName));
-
-            if(!StrContains(partName, findPartName, false))
-            {
-                answer = partArray[i];
-                answerCount++;
-            }
-        }
-
-        if(answerCount > 1)
-        {
-            CPrintToChat(client, "{yellow}[CP]{default} 파츠 이름을 좀 더 정확히 기입해주십시요.");
-            return;
-        }
-        else if(answerCount <= 0)
-        {
-            CPrintToChat(client, "{yellow}[CP]{default} 발견된 파츠가 없습니다.");
-            return;
-        }
-
-        part = answer;
-
-        Menu menu = new Menu(OnSelectedSlotItem);
-
-        GetPartString(part, "name", tempItem, sizeof(tempItem));
-        Format(item, sizeof(item), "이름: %s", item, tempItem);
-        // menu.AddItem("name", item, ITEMDRAW_DISABLED);
-
-        GetPartString(part, "description", tempItem, sizeof(tempItem));
-        Format(item, sizeof(item), "%s\n\n설명: %s", item, tempItem);
-        // menu.AddItem("description", item, ITEMDRAW_DISABLED);
-
-        GetPartString(part, "ability_description", tempItem, sizeof(tempItem));
-        Format(item, sizeof(item), "%s\n\n능력 설명: %s", item, tempItem);
-        // menu.AddItem("ability_description", item, ITEMDRAW_DISABLED);
-
-        GetPartString(part, "idea_owner_nickname", tempItem, sizeof(tempItem));
-        if(tempItem[0] != '\0') Format(item, sizeof(item), "%s\n\n아이디어 제공: %s\n\n", item, tempItem);
-        else Format(item, sizeof(item), "%s\n\nPOTRY SERVER ORIGINAL CUSTOMPART\n\n", item);
-        // menu.AddItem("idea_owner_nickname", item, ITEMDRAW_DISABLED);
-
-        menu.SetTitle(item);
-
-        menu.ExitButton = true;
-        menu.Display(client, 40);
-    }
-*/
-    // TODO: 등급별 분류
-}
-
-void ViewSlotPart(int client, int slot=0)
+void ViewPart(int client, int slot=0)
 {
     if(IsValidSlot(client, slot))
     {
@@ -982,74 +844,14 @@ public int OnSelectedSlotItem(Menu menu, MenuAction action, int client, int item
           {
               case 5:
               {
-                ViewSlotPart(client, LastSelectedSlot[client]-1);
+                ViewPart(client, LastSelectedSlot[client]-1);
               }
               case 6:
               {
-                ViewSlotPart(client, LastSelectedSlot[client]+1);
+                ViewPart(client, LastSelectedSlot[client]+1);
               }
           }
       }
-    }
-}
-
-int GetValidPartCount()
-{
-    int count;
-    int part;
-
-    Handle clonedHandle = CloneHandle(PartKV);
-    KvRewind(clonedHandle);
-    char key[20];
-
-    if(KvGotoFirstSubKey(clonedHandle))
-    {
-        do
-        {
-            KvGetSectionName(clonedHandle, key, sizeof(key));
-            if(!StrContains(key, "part"))
-            {
-                ReplaceString(key, sizeof(key), "part", "");
-                if(IsValidPart((part = StringToInt(key))))
-                {
-                    if(part <= 0) continue;
-
-                    count++;
-                }
-            }
-        }
-        while(KvGotoNextKey(clonedHandle));
-    }
-
-    return count;
-}
-
-public void GetValidPartArray(int[] parts, int size)
-{
-    int count;
-    int part;
-
-    Handle clonedHandle = CloneHandle(PartKV);
-    KvRewind(clonedHandle);
-    char key[20];
-
-    if(KvGotoFirstSubKey(clonedHandle))
-    {
-        do
-        {
-            KvGetSectionName(clonedHandle, key, sizeof(key));
-            if(!StrContains(key, "part"))
-            {
-                ReplaceString(key, sizeof(key), "part", "");
-                if(IsValidPart((part = StringToInt(key))))
-                {
-                    if(part <= 0) continue;
-
-                    parts[count++] = part;
-                }
-            }
-        }
-        while(KvGotoNextKey(clonedHandle) && count < size);
     }
 }
 
@@ -1251,7 +1053,6 @@ void RefrashPartSlotArray(int client, bool holdParts=false, bool holdCooltime=fa
     ActivedDurationArray[client].Resize(MaxPartSlot[client]);
 
     int part;
-    float cooltime;
 
     for(int count=0; count<MaxPartSlot[client]; count++)
     {
@@ -1265,16 +1066,14 @@ void RefrashPartSlotArray(int client, bool holdParts=false, bool holdCooltime=fa
                 ActivedPartSlotArray[client].Set(count, part);
 
                 if(holdCooltime)
-                {
                     ActivedDurationArray[client].Set(count, cooltime);
-                }
             }
-//
+
         }
         else
         {
             ActivedPartSlotArray[client].Set(count, 0);
-            ActivedDurationArray[client].Set(count, -1.0);
+            ActivedDurationArray[client].Set(count, 0.0);
 
         }
         // Debug("%N: [%i] %i", client, count, ActivedPartSlotArray[client].Get(count));
@@ -1323,11 +1122,9 @@ float GetClientTotalCooldown(int client)
 
     for(int count=0; count<MaxPartSlot[client]; count++)
     {
-        part = GetClientPart(client, count);
-
-        if(IsValidSlot(client, count) && IsValidPart(part))
+        if(IsValidSlot(count) && IsValidPart((part = GetClientPart(client, count))))
         {
-            totalCooldown += GetActivePartDuration(part);
+            totalCooldown += GetActivePartDuration(part)
         }
     }
 
@@ -1368,39 +1165,20 @@ float GetActivePartCooldown(int partIndex)
 
 float GetClientActiveSlotDuration(int client, int slot)
 {
-    if(IsValidSlot(client, slot))
+    if(IsValidSlot(slot))
     {
         float duration = ActivedDurationArray[client].Get(slot) - GetGameTime();
-        float realDuration;
-
-        if(duration > 0.0)
-        {
-            realDuration = duration;
-        }
-        else if(ActivedDurationArray[client].Get(slot) == -1.0)
-        {
-            realDuration = -1.0;
-        }
-        else
-        {
-            realDuration = 0.0;
-        }
-
-        return realDuration;
+        return duration > 0.0 ? duration : 0.0;
     }
 
-    return -1.0;
+    return 0.0;
 }
 
 void SetClientActiveSlotDuration(int client, int slot, float duration)
 {
-    if(IsValidSlot(client, slot))
+    if(IsValidSlot(slot))
     {
         float realDuration = duration + GetGameTime();
-
-        if(realDuration <= GetGameTime() || duration <= 0.0)
-            realDuration = -1.0;
-
         ActivedDurationArray[client].Set(slot, realDuration);
     }
 }
@@ -1411,9 +1189,9 @@ bool IsClientHaveDuration(int client)
 
     for(int count=0; count<MaxPartSlot[client]; count++)
     {
-        if(IsValidSlot(client, count))
+        if(IsValidSlot(count))
         {
-            if(ActivedDurationArray[client].Get(count) > GetGameTime() && ActivedDurationArray[client].Get(count) != -1.0)
+            if(ActivedDurationArray[client].Get(count) > GetGameTime())
                 return true;
         }
     }
@@ -1679,62 +1457,6 @@ public Native_NoticePart(Handle plugin, int numParams)
 {
     NoticePart(GetNativeCell(1), GetNativeCell(2));
 }
-/*
-CreateNative("CP_GetClientActiveSlotDuration", Native_GetClientActiveSlotDuration);
-CreateNative("CP_SetClientActiveSlotDuration", Native_SetClientActiveSlotDuration);
-CreateNative("CP_GetClientTotalCooldown", Native_GetClientTotalCooldown);
-CreateNative("CP_GetClientPartCharge", Native_GetClientPartCharge);
-CreateNative("CP_SetClientPartCharge", Native_SetClientPartCharge);
-CreateNative("CP_GetClientPartMaxChargeDamage", Native_GetClientPartMaxChargeDamage);
-CreateNative("CP_SetClientPartMaxChargeDamage", Native_SetClientPartMaxChargeDamage);
-CreateNative("CP_AddClientPartCharge", Native_AddClientPartCharge);
-CreateNative("CP_FindPart", Native_FindPart);
-*/
-
-public Native_GetClientActiveSlotDuration(Handle plugin, int numParams)
-{
-    return _:GetClientActiveSlotDuration(GetNativeCell(1), GetNativeCell(2));
-}
-
-public Native_SetClientActiveSlotDuration(Handle plugin, int numParams)
-{
-    SetClientActiveSlotDuration(GetNativeCell(1), GetNativeCell(2), GetNativeCell(3));
-}
-
-public Native_GetClientTotalCooldown(Handle plugin, int numParams)
-{
-    return _:GetClientTotalCooldown(GetNativeCell(1));
-}
-
-public Native_GetClientPartCharge(Handle plugin, int numParams)
-{
-    return _:PartCharge[GetNativeCell(1)];
-}
-
-public Native_SetClientPartCharge(Handle plugin, int numParams)
-{
-    PartCharge[GetNativeCell(1)] = GetNativeCell(2);
-}
-
-public Native_GetClientPartMaxChargeDamage(Handle plugin, int numParams)
-{
-    return _:PartMaxChargeDamage[GetNativeCell(1)];
-}
-
-public Native_SetClientPartMaxChargeDamage(Handle plugin, int numParams)
-{
-    PartMaxChargeDamage[GetNativeCell(1)] = GetNativeCell(2);
-}
-
-public Native_AddClientPartCharge(Handle plugin, int numParams)
-{
-    AddPartCharge(GetNativeCell(1), GetNativeCell(2));
-}
-
-public Native_FindPart(Handle plugin, int numParams)
-{
-    return FindPart(GetNativeCell(1), GetNativeCell(2));
-}
 
 public Action Forward_OnTouchedPartProp(int client, int prop)
 {
@@ -1804,26 +1526,6 @@ public void Forward_OnActivedPart(int client, int partIndex)
     Call_PushCell(client);
     Call_PushCell(partIndex);
     Call_Finish();
-}
-
-public void Forward_OnActivedPartEnd(int client, int partIndex)
-{
-    Call_StartForward(OnActivedPartEnd);
-    Call_PushCell(client);
-    Call_PushCell(partIndex);
-    Call_Finish();
-}
-
-public void Forward_OnClientCooldownEnd(int client)
-{
-    Call_StartForward(OnClientCooldownEnd);
-    Call_PushCell(client);
-    Call_Finish();
-}
-
-int FindPart(int client, int partIndex)
-{
-    return ActivedPartSlotArray[client].FindValue(partIndex);
 }
 
 int GetClientMaxSlot(int client)

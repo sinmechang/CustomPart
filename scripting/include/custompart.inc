@@ -177,23 +177,6 @@ native int CP_FindActiveSlot(int client);
 */
 native void CP_NoticePart(int client, int partIndex);
 
-native float CP_GetClientActiveSlotDuration(int client, int slot);
-
-native void CP_SetClientActiveSlotDuration(int client, int slot, float value);
-
-native float CP_GetClientTotalCooldown(int client);
-
-native float CP_GetClientPartCharge(int client);
-
-native void CP_SetClientPartCharge(int client, float charge);
-
-native float CP_GetClientPartMaxChargeDamage(int client);
-
-native float CP_SetClientPartMaxChargeDamage(int client, float chargeDamage);
-
-native void CP_AddClientPartCharge(int client, float charge);
-
-native int CP_FindPart(int client, int partIndex);
 /*
 *
 *
@@ -242,17 +225,3 @@ forward Action CP_PreActivePart(int client, int partIndex);
 *
 */
 forward void CP_OnActivedPart(int client, int partIndex);
-
-/*
-*
-*
-*
-*/
-forward void CP_OnActivedPartEnd(int client, int partIndex);
-
-/*
-*
-*
-*
-*/
-forward void CP_OnClientCooldownEnd(int client);
