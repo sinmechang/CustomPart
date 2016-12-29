@@ -194,6 +194,10 @@ native float CP_SetClientPartMaxChargeDamage(int client, float chargeDamage);
 native void CP_AddClientPartCharge(int client, float charge);
 
 native int CP_FindPart(int client, int partIndex);
+
+native bool CP_IsEnabled();
+
+native PartRank CP_RandomPartRank(bool includeAnother=false);
 /*
 *
 *

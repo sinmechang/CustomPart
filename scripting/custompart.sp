@@ -108,6 +108,8 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, err_max)
     CreateNative("CP_SetClientPartMaxChargeDamage", Native_SetClientPartMaxChargeDamage);
     CreateNative("CP_AddClientPartCharge", Native_AddClientPartCharge);
     CreateNative("CP_FindPart", Native_FindPart);
+    CreateNative("CP_IsEnabled", Native_IsEnabled);
+    CreateNative("CP_RandomPartRank", Native_RandomPartRank);
 
     OnTouchedPartProp = CreateGlobalForward("CP_OnTouchedPartProp", ET_Hook, Param_Cell, Param_Cell);
     OnTouchedPartPropPost = CreateGlobalForward("CP_OnTouchedPartProp_Post", ET_Hook, Param_Cell, Param_Cell);
@@ -237,6 +239,64 @@ public Action OnRoundEnd(Handle event, const char[] name, bool dont)
     for(int client=1; client<=MaxClients; client++)
     {
         CPFlags[client] = 0;
+
+        bool changed = false;
+
+        if(ActivedPartSlotArray[client].Length > 0) // TODO: 동일한 역할들을 묶어놓기.
+        {
+            RefrashPartSlotArray(client, true);
+
+            Action action;
+            int remainCount = 0;
+            bool[] gotoNextRound = new bool[MaxPartSlot[client]]
+            int temp, tempClient = client, tempPart;
+            bool tempGoToNextRound = false;
+            int[] maxSlot = new int[MaxPartSlot[client]]
+
+            for(int target=0; target<MaxPartSlot[client]; target++)
+            {
+                temp = ActivedPartSlotArray[client].Get(target);
+
+                if(!IsValidPart(temp)) continue;
+
+                tempPart = temp;
+                tempGoToNextRound = false;
+
+                action = Forward_OnSlotClear(tempClient, tempPart, tempGoToNextRound);
+
+                if(action == Plugin_Handled)
+                {
+                    maxSlot[remainCount++] = temp;
+                    gotoNextRound[remainCount] = tempGoToNextRound;
+                    changed = true;
+                }
+            }
+
+            RefrashPartSlotArray(client);
+            MaxPartSlot[client] = MaxPartGlobalSlot;
+            PartCharge[client] = 0.0;
+            PartCooldown[client] = -1.0;
+            PartMaxChargeDamage[client] = 0.0;
+
+            if(changed)
+            {
+                int roundstate = CheckRoundState();
+                for(int target=0; target<MaxPartSlot[client]; target++)
+                {
+                    if(target < remainCount && target < MaxPartSlot[client]
+                         &&
+                         (!gotoNextRound[target] || (roundstate != 1 && gotoNextRound[target]))
+                         )
+                         {
+                             ActivedPartSlotArray[client].Set(target, maxSlot[target]);
+                             Forward_OnGetPart_Post(client, maxSlot[target]);
+
+                             if(IsPartActive(maxSlot[target]))
+                                 PartMaxChargeDamage[client] += GetPartMaxChargeDamage(maxSlot[target]);
+                         }
+                }
+            }
+        }
     }
 }
 
@@ -457,6 +517,11 @@ void ChangeChatCommand()
 public OnClientPostAdminCheck(int client)
 {
     MaxPartSlot[client] = MaxPartGlobalSlot;
+
+    if(enabled)
+    {
+        SDKHook(client, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
+    }
 }
 
 public void OnClientDisconnect(int client)
@@ -565,8 +630,6 @@ public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
             PartCooldown[client] = 0.0;
             PartMaxChargeDamage[client] = 0.0;
         }
-
-        SDKHook(client, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
     }
 }
 
@@ -588,7 +651,6 @@ public void OnTakeDamagePost(int client, int attacker, int inflictor, float dama
 public Action OnPlayerDeath(Handle event, const char[] name, bool dont)
 {
     int client = GetClientOfUserId(GetEventInt(event, "userid"));
-    SDKUnhook(client, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
 
   	if(!enabled || !IsCorrectTeam(client) || CheckRoundState() != 1)
   	{
@@ -1120,23 +1182,29 @@ int RandomPart(int client, PartRank rank)
     return answer;
 }
 
-PartRank RandomPartRank()
+PartRank RandomPartRank(bool includeAnother=false)
 {
-    int ranklist[4];
-    ranklist[0] = 45;
-    ranklist[1] = 30;
-    ranklist[2] = 20;
-    ranklist[3] = 5;
+    int ranklist[5];
+    ranklist[0] = 50;
+    ranklist[1] = 40;
+    ranklist[2] = 25;
+    ranklist[3] = 10;
+    ranklist[4] = 10;
 
-    SetRandomSeed(GetTime());
+    SetRandomSeed(GetTime() + GetRandomInt(-100, 100));
 
-    int total = ranklist[0] + ranklist[1] + ranklist[2] + ranklist[3];
+    int total;
+    if(!includeAnother)
+        total = ranklist[0] + ranklist[1] + ranklist[2] + ranklist[3];
+    else
+        total = ranklist[0] + ranklist[1] + ranklist[2] + ranklist[3] + ranklist[4];
+
     int winner = GetRandomInt(0, total);
     int tempcount;
 
     PartRank rank;
 
-    for(int count; count < 4; count++)
+    for(int count; count < 5; count++)
     {
         tempcount += ranklist[count];
 
@@ -1146,6 +1214,7 @@ PartRank RandomPartRank()
             else if(count == 1) rank = Rank_Rare;
             else if(count == 2) rank = Rank_Hero;
             else if(count == 3) rank = Rank_Legend;
+            else if(count == 4) rank = Rank_Another;
 
             break;
         }
@@ -1218,18 +1287,6 @@ void SetClientPart(int client, int slot, int value) // return: 적용된 슬릇 
 
     ActivedPartSlotArray[client].Set(slot, value);
 }
-/*
-bool RemoveClientPart(int client, int slot)
-{
-    int slot = ActivedPartSlotArray[client].FindValue(partIndex);
-    if(slot >= 0)
-    {
-        ActivedPartSlotArray[client].Set(slot, 0);
-        return
-    }
-
-}
-*/
 
 void RefrashPartSlotArray(int client, bool holdParts=false, bool holdCooltime=false)
 {
@@ -1574,7 +1631,7 @@ bool CanUsePartClass(int partIndex, TFClassType class)
         if(classes[0] == '\0')
             return true;
 
-        else if(!StrContains(classes, classnames[view_as<int>(class)]))
+        else if(!StrContains(classes, classnames[view_as<int>(class)], false))
             return true;
     }
     return false;
@@ -1679,17 +1736,6 @@ public Native_NoticePart(Handle plugin, int numParams)
 {
     NoticePart(GetNativeCell(1), GetNativeCell(2));
 }
-/*
-CreateNative("CP_GetClientActiveSlotDuration", Native_GetClientActiveSlotDuration);
-CreateNative("CP_SetClientActiveSlotDuration", Native_SetClientActiveSlotDuration);
-CreateNative("CP_GetClientTotalCooldown", Native_GetClientTotalCooldown);
-CreateNative("CP_GetClientPartCharge", Native_GetClientPartCharge);
-CreateNative("CP_SetClientPartCharge", Native_SetClientPartCharge);
-CreateNative("CP_GetClientPartMaxChargeDamage", Native_GetClientPartMaxChargeDamage);
-CreateNative("CP_SetClientPartMaxChargeDamage", Native_SetClientPartMaxChargeDamage);
-CreateNative("CP_AddClientPartCharge", Native_AddClientPartCharge);
-CreateNative("CP_FindPart", Native_FindPart);
-*/
 
 public Native_GetClientActiveSlotDuration(Handle plugin, int numParams)
 {
@@ -1734,6 +1780,21 @@ public Native_AddClientPartCharge(Handle plugin, int numParams)
 public Native_FindPart(Handle plugin, int numParams)
 {
     return FindPart(GetNativeCell(1), GetNativeCell(2));
+}
+
+/*
+CreateNative("CP_IsEnabled", Native_IsEnabled);
+CreateNative("CP_RandomPartRank", Native_RandomPartRank);
+*/
+
+public Native_IsEnabled(Handle plugin, int numParams)
+{
+    return enabled;
+}
+
+public Native_RandomPartRank(Handle plugin, int numParams)
+{
+    return _:RandomPartRank(GetNativeCell(1));
 }
 
 public Action Forward_OnTouchedPartProp(int client, int prop)
