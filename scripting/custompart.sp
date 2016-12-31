@@ -69,8 +69,11 @@ Handle cvarPropSize;
 
 int NeedHelpPart;
 int CPFlags[MAXPLAYERS+1];
+
 int MaxPartSlot[MAXPLAYERS+1];
 int LastSelectedSlot[MAXPLAYERS+1];
+PartRank SelectedBookRank[MAXPLAYERS+1];
+
 ArrayList ActivedPartSlotArray[MAXPLAYERS+1];
 ArrayList ActivedDurationArray[MAXPLAYERS+1];
 
@@ -98,7 +101,6 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, err_max)
     CreateNative("CP_ReplacePartSlot", Native_ReplacePartSlot);
     CreateNative("CP_FindActiveSlot", Native_FindActiveSlot);
     CreateNative("CP_NoticePart", Native_NoticePart);
-
     CreateNative("CP_GetClientActiveSlotDuration", Native_GetClientActiveSlotDuration);
     CreateNative("CP_SetClientActiveSlotDuration", Native_SetClientActiveSlotDuration);
     CreateNative("CP_GetClientTotalCooldown", Native_GetClientTotalCooldown);
@@ -435,6 +437,8 @@ public Action OnCallForMedic(int client, const char[] command, int args)
 		return Plugin_Continue;
 	}
 
+    if(!IsClientHaveActivePart(client)) return Plugin_Continue;
+
     if(PartCharge[client] >= 100.0 && !IsClientHaveDuration(client) && GetClientPartCooldown(client) <= 0.0)
     {
         PartCharge[client] = 0.0;
@@ -474,6 +478,7 @@ public Action TestSlot(int client, int args)
         CPrintToChatAll("[%i] %i", count, ActivedPartSlotArray[client].Get(count));
         CPrintToChatAll("[%i] 지속시간: %.1f", count, ActivedDurationArray[client].Get(count));
     }
+    CPrintToChatAll("쿨타임: %.1f", PartCooldown[client]);
 }
 
 public void OnEntityDestroyed(int entity)
@@ -799,11 +804,13 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
             Forward_OnGetPart_Post(client, tempPart);
 
             SetClientPart(client, slot, part);
-            ViewSlotPart(client, slot);
+            ViewPart(client, part);
             PrintCenterText(client, "파츠를 흭득하셨습니다!");
 
             if(IsPartActive(part))
+            {
                 PartMaxChargeDamage[client] += GetPartMaxChargeDamage(part);
+            }
 
 			AcceptEntityInput(entity, "kill");
 			return Plugin_Handled;
@@ -895,70 +902,179 @@ public Action Listener_Say(int client, const char[] command, int argc)
 
 void ViewPartBook(int client)
 {
+/*
     char partName[80];
     char item[500];
     char tempItem[200];
     int part;
-/*
-    if(findPartName[0] != '\0')
+
+    Menu menu = new Menu(OnSelectedSlotItem);
+
+    GetPartString(part, "name", tempItem, sizeof(tempItem));
+    Format(item, sizeof(item), "이름: %s", item, tempItem);
+    // menu.AddItem("name", item, ITEMDRAW_DISABLED);
+
+    GetPartString(part, "description", tempItem, sizeof(tempItem));
+    Format(item, sizeof(item), "%s\n\n설명: %s", item, tempItem);
+    // menu.AddItem("description", item, ITEMDRAW_DISABLED);
+
+    GetPartString(part, "ability_description", tempItem, sizeof(tempItem));
+    Format(item, sizeof(item), "%s\n\n능력 설명: %s", item, tempItem);
+    // menu.AddItem("ability_description", item, ITEMDRAW_DISABLED);
+
+    GetPartString(part, "idea_owner_nickname", tempItem, sizeof(tempItem));
+    if(tempItem[0] != '\0') Format(item, sizeof(item), "%s\n\n아이디어 제공: %s\n\n", item, tempItem);
+    else Format(item, sizeof(item), "%s\n\nPOTRY SERVER ORIGINAL CUSTOMPART\n\n", item);
+    // menu.AddItem("idea_owner_nickname", item, ITEMDRAW_DISABLED);
+
+    menu.SetTitle(item);
+
+    menu.ExitButton = true;
+    menu.Display(client, 40);
+*/
+    Menu menu = new Menu(OnSelectedBook);
+
+    menu.SetTitle("등급별로 파츠를 보실 수 있습니다.\n무엇을 보실건가요?");
+
+    menu.AddItem("일반", "일반 등급");
+    menu.AddItem("희귀", "희귀 등급");
+    menu.AddItem("영웅", "영웅 등급");
+    menu.AddItem("전설", "전설 등급");
+    menu.AddItem("어나더", "어나더 등급");
+
+    menu.ExitButton = true;
+
+    menu.Display(client, 40);
+}
+
+public int OnSelectedBook(Menu menu, MenuAction action, int client, int item)
+{
+    switch(action)
     {
-        int count = GetValidPartCount();
-        int answer;
-        int answerCount;
-        int[] partArray = new int[count]
+      case MenuAction_End:
+      {
+          menu.Close();
+      }
+      case MenuAction_Select:
+      {
+          SelectedBookRank[client] = view_as<PartRank>(item)
+          LastSelectedSlot[client] = 0;
+          ViewPartBookItem(client, SelectedBookRank[client], LastSelectedSlot[client]);
+      }
+    }
+}
 
-        GetValidPartArray(partArray, count);
+void ViewPartBookItem(int client, PartRank rank, int pos)
+{
+    char partName[80];
+    char item[500];
+    char tempItem[200];
 
-        for(int i=0; i<count; i++)
-        {
-            GetPartString(partArray[i], "name", partName, sizeof(partName));
+    int count = GetValidPartCount(rank);
+    int[] partArray = new int[count]
+    GetValidPartArray(rank, partArray, count);
 
-            if(!StrContains(partName, findPartName, false))
-            {
-                answer = partArray[i];
-                answerCount++;
-            }
-        }
+    int part = partArray[pos];
 
-        if(answerCount > 1)
-        {
-            CPrintToChat(client, "{yellow}[CP]{default} 파츠 이름을 좀 더 정확히 기입해주십시요.");
-            return;
-        }
-        else if(answerCount <= 0)
-        {
-            CPrintToChat(client, "{yellow}[CP]{default} 발견된 파츠가 없습니다.");
-            return;
-        }
+    Menu menu = new Menu(OnSelectedBookItem);
 
-        part = answer;
+    GetPartString(part, "name", tempItem, sizeof(tempItem));
+    Format(item, sizeof(item), "이름: %s", item, tempItem);
+    // menu.AddItem("name", item, ITEMDRAW_DISABLED);
 
+    GetPartString(part, "description", tempItem, sizeof(tempItem));
+    Format(item, sizeof(item), "%s\n\n설명: %s", item, tempItem);
+    // menu.AddItem("description", item, ITEMDRAW_DISABLED);
+
+    GetPartString(part, "ability_description", tempItem, sizeof(tempItem));
+    Format(item, sizeof(item), "%s\n\n능력 설명: %s", item, tempItem);
+    // menu.AddItem("ability_description", item, ITEMDRAW_DISABLED);
+
+    GetPartString(part, "idea_owner_nickname", tempItem, sizeof(tempItem));
+    if(tempItem[0] != '\0') Format(item, sizeof(item), "%s\n\n아이디어 제공: %s\n\n", item, tempItem);
+    else Format(item, sizeof(item), "%s\n\nPOTRY SERVER ORIGINAL CUSTOMPART\n\n", item);
+    // menu.AddItem("idea_owner_nickname", item, ITEMDRAW_DISABLED);
+
+    menu.SetTitle(item);
+
+    int itemFlags;
+    if(pos - 1 >= 0)
+        Format(item, sizeof(item), "이전으로");
+    else
+    {
+        itemFlags = ITEMDRAW_DISABLED;
+        Format(item, sizeof(item), "이전 파츠가 없습니다.");
+    }
+    menu.AddItem("older", item, itemFlags);
+
+    itemFlags = 0;
+
+    if(pos + 1 < count)
+        Format(item, sizeof(item), "다음으로");
+    else
+    {
+        itemFlags = ITEMDRAW_DISABLED;
+        Format(item, sizeof(item), "다음 파츠가 없습니다.");
+    }
+    menu.AddItem("newer", item, itemFlags);
+
+    menu.ExitButton = true;
+    menu.Display(client, 40);
+}
+
+public int OnSelectedBookItem(Menu menu, MenuAction action, int client, int item)
+{
+    switch(action)
+    {
+      case MenuAction_End:
+      {
+          menu.Close();
+      }
+      case MenuAction_Select:
+      {
+          switch(item)
+          {
+              case 0:
+              {
+                ViewPartBookItem(client, SelectedBookRank[client], --LastSelectedSlot[client]);
+              }
+              case 1:
+              {
+                ViewPartBookItem(client, SelectedBookRank[client], ++LastSelectedSlot[client]);
+              }
+          }
+      }
+    }
+}
+
+void ViewPart(int client, int partIndex)
+{
+    if(IsValidPart(partIndex))
+    {
+        char item[500];
+        char tempItem[200];
         Menu menu = new Menu(OnSelectedSlotItem);
 
-        GetPartString(part, "name", tempItem, sizeof(tempItem));
-        Format(item, sizeof(item), "이름: %s", item, tempItem);
-        // menu.AddItem("name", item, ITEMDRAW_DISABLED);
+        Format(item, sizeof(item), "방금 흭득한 파츠:");
 
-        GetPartString(part, "description", tempItem, sizeof(tempItem));
+        GetPartString(partIndex, "name", tempItem, sizeof(tempItem));
+        Format(item, sizeof(item), "%s\n\n이름: %s", item, tempItem);
+
+        GetPartString(partIndex, "description", tempItem, sizeof(tempItem));
         Format(item, sizeof(item), "%s\n\n설명: %s", item, tempItem);
-        // menu.AddItem("description", item, ITEMDRAW_DISABLED);
 
-        GetPartString(part, "ability_description", tempItem, sizeof(tempItem));
+        GetPartString(partIndex, "ability_description", tempItem, sizeof(tempItem));
         Format(item, sizeof(item), "%s\n\n능력 설명: %s", item, tempItem);
-        // menu.AddItem("ability_description", item, ITEMDRAW_DISABLED);
 
-        GetPartString(part, "idea_owner_nickname", tempItem, sizeof(tempItem));
+        GetPartString(partIndex, "idea_owner_nickname", tempItem, sizeof(tempItem));
         if(tempItem[0] != '\0') Format(item, sizeof(item), "%s\n\n아이디어 제공: %s\n\n", item, tempItem);
         else Format(item, sizeof(item), "%s\n\nPOTRY SERVER ORIGINAL CUSTOMPART\n\n", item);
-        // menu.AddItem("idea_owner_nickname", item, ITEMDRAW_DISABLED);
 
         menu.SetTitle(item);
 
         menu.ExitButton = true;
         menu.Display(client, 40);
     }
-*/
-    // TODO: 등급별 분류
 }
 
 void ViewSlotPart(int client, int slot=0)
@@ -994,12 +1110,6 @@ void ViewSlotPart(int client, int slot=0)
         // menu.AddItem("idea_owner_nickname", item, ITEMDRAW_DISABLED);
 
         menu.SetTitle(item);
-
-        menu.AddItem("", item, ITEMDRAW_IGNORE);
-        menu.AddItem("", item, ITEMDRAW_IGNORE);
-        menu.AddItem("", item, ITEMDRAW_IGNORE);
-        menu.AddItem("", item, ITEMDRAW_IGNORE);
-        menu.AddItem("", item, ITEMDRAW_IGNORE);
 
         int itemFlags;
         if(slot - 1 >= 0)
@@ -1055,10 +1165,11 @@ public int OnSelectedSlotItem(Menu menu, MenuAction action, int client, int item
     }
 }
 
-int GetValidPartCount()
+int GetValidPartCount(PartRank rank = Rank_None)
 {
     int count;
     int part;
+    int integerRank = view_as<int>(rank);
 
     Handle clonedHandle = CloneHandle(PartKV);
     KvRewind(clonedHandle);
@@ -1076,7 +1187,8 @@ int GetValidPartCount()
                 {
                     if(part <= 0) continue;
 
-                    count++;
+                    if(rank == Rank_None || KvGetNum(PartKV, "rank") == integerRank)
+                        count++;
                 }
             }
         }
@@ -1086,10 +1198,11 @@ int GetValidPartCount()
     return count;
 }
 
-public void GetValidPartArray(int[] parts, int size)
+public void GetValidPartArray(PartRank rank, int[] parts, int size)
 {
     int count;
     int part;
+    int integerRank = view_as<int>(rank);
 
     Handle clonedHandle = CloneHandle(PartKV);
     KvRewind(clonedHandle);
@@ -1107,7 +1220,8 @@ public void GetValidPartArray(int[] parts, int size)
                 {
                     if(part <= 0) continue;
 
-                    parts[count++] = part;
+                    if(rank == Rank_None || KvGetNum(PartKV, "rank") == integerRank)
+                        parts[count++] = part;
                 }
             }
         }
@@ -1373,6 +1487,19 @@ bool IsPartActive(int partIndex)
     return false;
 }
 
+bool IsClientHaveActivePart(int client)
+{
+    int part;
+
+    for(int count=0; count<MaxPartSlot[client]; count++)
+    {
+        part = GetClientPart(client, count);
+        if(IsPartActive(part))
+            return true;
+    }
+    return false;
+}
+
 float GetClientTotalCooldown(int client)
 {
     int part;
@@ -1464,8 +1591,6 @@ void SetClientActiveSlotDuration(int client, int slot, float duration)
 
 bool IsClientHaveDuration(int client)
 {
-    float duration;
-
     for(int count=0; count<MaxPartSlot[client]; count++)
     {
         if(IsValidSlot(client, count))
@@ -1555,6 +1680,8 @@ void SetPartPropInfo(int prop, PartInfo partinfo, any value, bool changeModel = 
 
 void PropToPartProp(int prop, int partIndex=0, PartRank rank=Rank_Normal, bool createLight, bool changeModel=false, bool IsFake=false)
 {
+    if(!IsValidEntity(prop)) return;
+
     SetPartPropInfo(prop, Info_Rank, rank, changeModel);
     SetPartPropInfo(prop, Info_CustomIndex, partIndex, changeModel);
 
@@ -1587,6 +1714,7 @@ void PropToPartProp(int prop, int partIndex=0, PartRank rank=Rank_Normal, bool c
     {
         CreateTimer(0.05, OnPickup, EntIndexToEntRef(prop));
     }
+    DispatchSpawn(prop);
 }
 
 bool CanUsePartBoss(int partIndex)

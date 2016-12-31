@@ -4,6 +4,7 @@
 
 enum PartRank
 {
+    Rank_None=-1,
     Rank_Normal=0,
     Rank_Rare,
     Rank_Hero,
