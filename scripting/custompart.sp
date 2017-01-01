@@ -773,7 +773,6 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
         || (IsBoss(client) && CanUseSystemBoss() && rank == Rank_Another))
         )
 		{
-            RefrashPartSlotArray(client, true, true);
             part = GetPartPropInfo(entity, Info_CustomIndex);
             if(!IsValidPart(part))
                 part = RandomPart(client, rank);
@@ -902,36 +901,6 @@ public Action Listener_Say(int client, const char[] command, int argc)
 
 void ViewPartBook(int client)
 {
-/*
-    char partName[80];
-    char item[500];
-    char tempItem[200];
-    int part;
-
-    Menu menu = new Menu(OnSelectedSlotItem);
-
-    GetPartString(part, "name", tempItem, sizeof(tempItem));
-    Format(item, sizeof(item), "이름: %s", item, tempItem);
-    // menu.AddItem("name", item, ITEMDRAW_DISABLED);
-
-    GetPartString(part, "description", tempItem, sizeof(tempItem));
-    Format(item, sizeof(item), "%s\n\n설명: %s", item, tempItem);
-    // menu.AddItem("description", item, ITEMDRAW_DISABLED);
-
-    GetPartString(part, "ability_description", tempItem, sizeof(tempItem));
-    Format(item, sizeof(item), "%s\n\n능력 설명: %s", item, tempItem);
-    // menu.AddItem("ability_description", item, ITEMDRAW_DISABLED);
-
-    GetPartString(part, "idea_owner_nickname", tempItem, sizeof(tempItem));
-    if(tempItem[0] != '\0') Format(item, sizeof(item), "%s\n\n아이디어 제공: %s\n\n", item, tempItem);
-    else Format(item, sizeof(item), "%s\n\nPOTRY SERVER ORIGINAL CUSTOMPART\n\n", item);
-    // menu.AddItem("idea_owner_nickname", item, ITEMDRAW_DISABLED);
-
-    menu.SetTitle(item);
-
-    menu.ExitButton = true;
-    menu.Display(client, 40);
-*/
     Menu menu = new Menu(OnSelectedBook);
 
     menu.SetTitle("등급별로 파츠를 보실 수 있습니다.\n무엇을 보실건가요?");
@@ -979,7 +948,7 @@ void ViewPartBookItem(int client, PartRank rank, int pos)
     Menu menu = new Menu(OnSelectedBookItem);
 
     GetPartString(part, "name", tempItem, sizeof(tempItem));
-    Format(item, sizeof(item), "이름: %s", item, tempItem);
+    Format(item, sizeof(item), "이름: %s", tempItem);
     // menu.AddItem("name", item, ITEMDRAW_DISABLED);
 
     GetPartString(part, "description", tempItem, sizeof(tempItem));
@@ -1152,13 +1121,13 @@ public int OnSelectedSlotItem(Menu menu, MenuAction action, int client, int item
           RefrashPartSlotArray(client, true, true);
           switch(item)
           {
-              case 5:
+              case 0:
               {
-                ViewSlotPart(client, LastSelectedSlot[client]-1);
+                ViewSlotPart(client, --LastSelectedSlot[client]);
               }
-              case 6:
+              case 1:
               {
-                ViewSlotPart(client, LastSelectedSlot[client]+1);
+                ViewSlotPart(client, ++LastSelectedSlot[client]);
               }
           }
       }
@@ -1247,25 +1216,21 @@ int RandomPart(int client, PartRank rank)
         do
         {
             KvGetSectionName(clonedHandle, key, sizeof(key));
-            // Debug("RandomPart: %s", key);
             if(!StrContains(key, "part"))
             {
                 ReplaceString(key, sizeof(key), "part", "");
-                // Debug("RandomPart: %s", key);
                 if(IsValidPart((part = StringToInt(key))))
                 {
-                    // Debug("컨픽에서 %d 파츠를 발견함.", part);
                     if(part <= 0) continue;
 
                     if(((isBoss && CanUsePartBoss(part))
-                    || (!isBoss && CanUsePartClass(part, class)))
+                    || (!isBoss && CanUsePartClass(part, class) && !CanUsePartBoss(part))) // FIXME: 보스의 파츠를 인간도 먹어버림.
                     && GetPartRank(part) == rank
                     && KvGetNum(clonedHandle, "not_able_in_random", 0) <= 0
                     )
                     {
                         count++;
                         parts.Push(part);
-                        // Debug("%d 파츠가 랜덤 리스트에 오름, 파츠랭크 = %i", part, view_as<int>(GetPartRank(part)));
                     }
                 }
             }
@@ -2023,6 +1988,8 @@ int GetClientMaxSlot(int client)
 void SetClientMaxSlot(int client, int maxSlot)
 {
     MaxPartSlot[client] = maxSlot;
+
+    RefrashPartSlotArray(client, true, true);
 }
 
 void CheckPartConfigFile()
