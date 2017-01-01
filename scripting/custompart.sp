@@ -381,11 +381,11 @@ public Action ClientTimer(Handle timer)
                                 GetPartString(part, "name", partName, sizeof(partName));
                                 if(activeCount == 0)
                                 {
-                                    Format(HudMessage, sizeof(HudMessage), "%s: %.1f |", partName, GetClientActiveSlotDuration(target, count));
+                                    Format(HudMessage, sizeof(HudMessage), "%s: %.1f", partName, GetClientActiveSlotDuration(target, count));
                                 }
                                 else if(activeCount < 2)
                                 {
-                                    Format(HudMessage, sizeof(HudMessage), "%s %s: %.1f |", HudMessage, partName, GetClientActiveSlotDuration(target, count));
+                                    Format(HudMessage, sizeof(HudMessage), "%s | %s: %.1f", HudMessage, partName, GetClientActiveSlotDuration(target, count));
                                 }
 
                                 activeCount++;
@@ -1022,7 +1022,7 @@ void ViewPart(int client, int partIndex)
     {
         char item[500];
         char tempItem[200];
-        Menu menu = new Menu(OnSelectedSlotItem);
+        Menu menu = new Menu(OnSelected);
 
         Format(item, sizeof(item), "방금 흭득한 파츠:");
 
@@ -1041,6 +1041,7 @@ void ViewPart(int client, int partIndex)
 
         menu.SetTitle(item);
 
+        menu.AddItem("", "!파츠 명령어로 가지고 있는 파츠를 확인 가능!", ITEMDRAW_DISABLED);
         menu.ExitButton = true;
         menu.Display(client, 40);
     }
@@ -1130,6 +1131,17 @@ public int OnSelectedSlotItem(Menu menu, MenuAction action, int client, int item
                 ViewSlotPart(client, ++LastSelectedSlot[client]);
               }
           }
+      }
+    }
+}
+
+public int OnSelected(Menu menu, MenuAction action, int client, int item)
+{
+    switch(action)
+    {
+      case MenuAction_End:
+      {
+          menu.Close();
       }
     }
 }
