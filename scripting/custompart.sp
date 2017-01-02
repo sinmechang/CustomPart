@@ -1022,28 +1022,15 @@ void ViewPart(int client, int partIndex)
     {
         char item[500];
         char tempItem[200];
-        Menu menu = new Menu(OnSelected);
-
         Format(item, sizeof(item), "방금 흭득한 파츠:");
 
         GetPartString(partIndex, "name", tempItem, sizeof(tempItem));
         Format(item, sizeof(item), "%s\n\n이름: %s", item, tempItem);
 
-        GetPartString(partIndex, "description", tempItem, sizeof(tempItem));
-        Format(item, sizeof(item), "%s\n\n설명: %s", item, tempItem);
-
         GetPartString(partIndex, "ability_description", tempItem, sizeof(tempItem));
-        Format(item, sizeof(item), "%s\n\n능력 설명: %s", item, tempItem);
+        Format(item, sizeof(item), "%s\n능력 설명: %s", item, tempItem);
 
-        GetPartString(partIndex, "idea_owner_nickname", tempItem, sizeof(tempItem));
-        if(tempItem[0] != '\0') Format(item, sizeof(item), "%s\n\n아이디어 제공: %s\n\n", item, tempItem);
-        else Format(item, sizeof(item), "%s\n\nPOTRY SERVER ORIGINAL CUSTOMPART\n\n", item);
-
-        menu.SetTitle(item);
-
-        menu.AddItem("", "!파츠 명령어로 가지고 있는 파츠를 확인 가능!", ITEMDRAW_DISABLED);
-        menu.ExitButton = true;
-        menu.Display(client, 40);
+        PrintHintText(client, item);
     }
 }
 
@@ -1237,7 +1224,7 @@ int RandomPart(int client, PartRank rank)
 
                     if(((isBoss && CanUsePartBoss(part))
                     || (!isBoss && CanUsePartClass(part, class) && !CanUsePartBoss(part))) // FIXME: 보스의 파츠를 인간도 먹어버림.
-                    && GetPartRank(part) == rank
+                    && GetPartRank(part) == rank && IsCanUseWeaponPart(client, part)
                     && KvGetNum(clonedHandle, "not_able_in_random", 0) <= 0
                     )
                     {
@@ -1280,7 +1267,7 @@ PartRank RandomPartRank(bool includeAnother=false)
     ranklist[1] = 40;
     ranklist[2] = 25;
     ranklist[3] = 10;
-    ranklist[4] = 10;
+    ranklist[4] = 20;
 
     SetRandomSeed(GetTime() + GetRandomInt(-100, 100));
 
@@ -1459,6 +1446,45 @@ bool IsPartActive(int partIndex)
     if(IsValidPart(partIndex))
     {
         return KvGetNum(PartKV, "active_part", 0) > 0;
+    }
+
+    return false;
+}
+
+bool IsCanUseWeaponPart(int client, int partIndex)
+{
+    int weapon;
+    int index;
+    char key[20];
+    int count;
+    int value;
+    bool what=true;
+
+    if(!IsValidPart(partIndex)) return false;
+
+    for(int slot=0; slot<5; slot++)
+    {
+        count = 0;
+        weapon = GetPlayerWeaponSlot(client, slot);
+        if(IsValidEntity(weapon))
+        {
+            index = GetEntProp(weapon, Prop_Send, "m_iItemDefinitionIndex");
+            do
+            {
+                Format(key, sizeof(key), "only_allow_weapon%i", ++count);
+                value = KvGetNum(PartKV, key, 0);
+
+                if(value == index)
+                    return true;
+
+                else if(count <= 1 && value <= 0)
+                    return true;
+
+                else if(value <= 0)
+                    break;
+            }
+            while(what);
+        }
     }
 
     return false;
