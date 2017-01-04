@@ -136,7 +136,7 @@ public void OnPluginStart()
       cvarPropSize = CreateConVar("cp_prop_size", "50.0", "캡슐 섭취 범위", _, true, 0.1);
 
       RegAdminCmd("slot", TestSlot, ADMFLAG_CHEATS, "");
-      RegAdminCmd("givemepart", GivePart, ADMFLAG_CHEATS, "");
+      RegAdminCmd("givepart", GivePart, ADMFLAG_CHEATS, "");
 
       AddCommandListener(Listener_Say, "say");
       AddCommandListener(Listener_Say, "say_team");
@@ -171,23 +171,66 @@ public void OnPluginStart()
 
 public Action GivePart(int client, int args)
 {
-    RefrashPartSlotArray(client, true, true);
-    char num[40];
-    int part;
-    GetCmdArgString(num, sizeof(num));
+    if(!enabled)
+	{
+		return Plugin_Continue;
+	}
 
-    part = StringToInt(num);
-    if(IsValidPart(part))
-    {
-        int slot = FindActiveSlot(client);
-        if(IsValidSlot(client, slot))
+	if(args != 2)
+	{
+		CReplyToCommand(client, "{yellow}[CP]{default} Usage: !givepart <target> <points>");
+		return Plugin_Handled;
+	}
+
+    char num[25];
+    int part;
+	char stringPoints[8];
+	char pattern[PLATFORM_MAX_PATH];
+	GetCmdArg(1, pattern, sizeof(pattern));
+	GetCmdArg(2, num, sizeof(num));
+	part = StringToInt(num);
+
+	char targetName[MAX_TARGET_LENGTH];
+	int targets[MAXPLAYERS], matches;
+	bool targetNounIsMultiLanguage;
+
+	if((matches=ProcessTargetString(pattern, client, targets, sizeof(targets), 0, targetName, sizeof(targetName), targetNounIsMultiLanguage))<=0)
+	{
+		ReplyToTargetError(client, matches);
+		return Plugin_Handled;
+	}
+
+    if(!IsValidPart(part)) return Plugin_Handled;
+
+	if(matches>1)
+	{
+		for(int target; target<matches; target++)
+		{
+			if(!IsClientSourceTV(targets[target]) && !IsClientReplay(targets[target]))
+			{
+                int slot = FindActiveSlot(targets[target]);
+                if(IsValidSlot(targets[target], slot))
+                {
+                    SetClientPart(targets[target], slot, part);
+                    PartMaxChargeDamage[targets[target]] += GetPartMaxChargeDamage(part);
+                    Forward_OnGetPart_Post(targets[target], part);
+                    CPrintToChatAll("{yellow}[CP]{default} %N님이 %N에게 %i가 추가됨.", client, targets[target], part);
+                }
+            }
+		}
+	}
+	else
+	{
+        int slot = FindActiveSlot(targets[0]);
+        if(IsValidSlot(targets[0], slot))
         {
-            SetClientPart(client, slot, part);
-            PartMaxChargeDamage[client] += GetPartMaxChargeDamage(part);
-            Forward_OnGetPart_Post(client, part);
-            CPrintToChat(client, "{yellow}[CP]{default} %N에게 %i가 추가됨.", client, part);
+            SetClientPart(targets[0], slot, part);
+            PartMaxChargeDamage[targets[0]] += GetPartMaxChargeDamage(part);
+            Forward_OnGetPart_Post(targets[0], part);
+            CPrintToChatAll("{yellow}[CP]{default} %N님이 %N에게 %i가 추가됨.", client, targets[0], part);
         }
-    }
+	}
+	return Plugin_Handled;
 }
 
 public void OnGameFrame()
@@ -1912,11 +1955,6 @@ public Native_FindPart(Handle plugin, int numParams)
 {
     return FindPart(GetNativeCell(1), GetNativeCell(2));
 }
-
-/*
-CreateNative("CP_IsEnabled", Native_IsEnabled);
-CreateNative("CP_RandomPartRank", Native_RandomPartRank);
-*/
 
 public Native_IsEnabled(Handle plugin, int numParams)
 {
