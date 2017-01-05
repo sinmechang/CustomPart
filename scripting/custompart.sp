@@ -66,6 +66,7 @@ Handle cvarPropCount;
 Handle cvarPropVelocity;
 Handle cvarPropForNoBossTeam;
 Handle cvarPropSize;
+Handle cvarPropCooltime;
 
 int NeedHelpPart;
 int CPFlags[MAXPLAYERS+1];
@@ -80,6 +81,7 @@ ArrayList ActivedDurationArray[MAXPLAYERS+1];
 float PartCharge[MAXPLAYERS+1];
 float PartMaxChargeDamage[MAXPLAYERS+1];
 float PartCooldown[MAXPLAYERS+1];
+float PartGetCoolTime[MAXPLAYERS+1];
 
 // TODO: 최적화
 PartRank PartPropRank[MAX_EDICTS+1];
@@ -134,6 +136,7 @@ public void OnPluginStart()
       cvarPropVelocity = CreateConVar("cp_prop_velocity", "250.0", "프롭 생성시 흩어지는 최대 속도, 설정한 범위 내로 랜덤으로 속도가 정해집니다.", _, true, 0.0);
       cvarPropForNoBossTeam = CreateConVar("cp_prop_for_team", "2", "0 혹은 1은 제한 없음, 2는 레드팀에게만, 3은 블루팀에게만. (생성도 포함됨.)", _, true, 0.0, true, 2.0);
       cvarPropSize = CreateConVar("cp_prop_size", "50.0", "캡슐 섭취 범위", _, true, 0.1);
+      cvarPropCooltime = CreateConVar("cp_prop_cooltime", "5.0", "캡슐 섭취 쿨타임.", _, true, 0.1);
 
       RegAdminCmd("slot", TestSlot, ADMFLAG_CHEATS, "");
       RegAdminCmd("givepart", GivePart, ADMFLAG_CHEATS, "");
@@ -156,7 +159,7 @@ public void OnPluginStart()
       CPHud = CreateHudSynchronizer();
       CPChargeHud = CreateHudSynchronizer();
 
-      CreateTimer(0.2, ClientTimer, _, TIMER_REPEAT);
+      CreateTimer(0.1, ClientTimer, _, TIMER_REPEAT);
 
       for(int client=1; client<=MaxClients; client++)
       {
@@ -233,52 +236,6 @@ public Action GivePart(int client, int args)
 	return Plugin_Handled;
 }
 
-public void OnGameFrame()
-{
-    if(CheckRoundState() != 1) return;
-
-    float duration;
-    // int part;
-
-    for(int client=1; client<=MaxClients; client++)
-    {
-        if(!IsClientInGame(client)
-        || ActivedDurationArray[client] == INVALID_HANDLE
-        || ActivedPartSlotArray[client] == INVALID_HANDLE)
-        continue;
-
-        if(IsPlayerAlive(client))
-        {
-            if(IsClientHaveDuration(client))
-            {
-                for(int count=0; count<MaxPartSlot[count]; count++)
-                {
-                    duration = GetClientActiveSlotDuration(client, count);
-                    if(duration != -1.0 && duration <= 0.0)
-                    {
-                        SetClientActiveSlotDuration(client, count, -1.0);
-                        Forward_OnActivedPartEnd(client, GetClientPart(client, count));
-                    }
-                }
-
-                if(!IsClientHaveDuration(client)) // 능력 지속시간이 끝났을 경우, 쿨타임 부여
-                {
-                    PartCooldown[client] = GetClientTotalCooldown(client) + GetGameTime();
-                }
-            }
-            else
-            {
-                if(PartCooldown[client] != -1.0 && PartCooldown[client] <= GetGameTime())
-                {
-                    PartCooldown[client] = -1.0;
-                    Forward_OnClientCooldownEnd(client);
-                }
-            }
-        }
-    }
-}
-
-
 public Action OnRoundEnd(Handle event, const char[] name, bool dont)
 {
     for(int client=1; client<=MaxClients; client++)
@@ -352,6 +309,7 @@ public Action ClientTimer(Handle timer)
     bool hasActivePart = false;
     char HudMessage[200];
     char partName[100];
+    float duration;
 
     if(CheckRoundState() != 1)
         return Plugin_Continue;
@@ -361,19 +319,46 @@ public Action ClientTimer(Handle timer)
         hasActivePart = false;
         if(!IsClientInGame(client)) continue;
 
+        if(IsClientHaveDuration(client))
+        {
+            for(int count=0; count<MaxPartSlot[client]; count++)
+            {
+                duration = GetClientActiveSlotDuration(client, count);
+                if(duration > 0.0)
+                {
+                    duration -= 0.1;
+                    SetClientActiveSlotDuration(client, count, duration);
+                }
+
+                if(duration <= 0.0)
+                {
+                    Forward_OnActivedPartEnd(client, GetClientPart(client, count));
+                }
+            }
+        }
+        else if(PartCooldown[client] > 0.0)
+        {
+            PartCooldown[client] -= 0.1;
+
+            if(PartCooldown[client] <= 0.0)
+            {
+                Forward_OnClientCooldownEnd(client);
+            }
+        }
+
         if(!(CPFlags[client] & CPFLAG_DISABLE_HUD))
         {
-            SetHudTextParams(0.8, 0.1, 0.22, 255, 228, 0, 185);
+            SetHudTextParams(0.7, 0.1, 0.12, 255, 228, 0, 185);
 
             if(IsPlayerAlive(client))
             {
                 target = client;
-                Format(HudMessage, sizeof(HudMessage), "활성화된 파츠:");
+                Format(HudMessage, sizeof(HudMessage), "활성화된 파츠: (최대 슬릇: %i)", MaxPartSlot[target]);
             }
             else
             {
                 target = GetEntPropEnt(client, Prop_Send, "m_hObserverTarget");
-                Format(HudMessage, sizeof(HudMessage), "관전 중인 상대 파츠:");
+                Format(HudMessage, sizeof(HudMessage), "관전 중인 상대 파츠: (최대 슬릇: %i)", MaxPartSlot[target]);
             }
 
             if(IsValidClient(target))
@@ -405,7 +390,7 @@ public Action ClientTimer(Handle timer)
 
                 if(hasActivePart)
                 {
-                    SetHudTextParams(-1.0, 0.76, 0.22, 255, 228, 0, 185);
+                    SetHudTextParams(-1.0, 0.76, 0.12, 255, 228, 0, 185);
 
                     int ragemeter = RoundFloat(PartCharge[target]*(PartMaxChargeDamage[target]/100.0));
 
@@ -485,6 +470,7 @@ public Action OnCallForMedic(int client, const char[] command, int args)
     if(PartCharge[client] >= 100.0 && !IsClientHaveDuration(client) && GetClientPartCooldown(client) <= 0.0)
     {
         PartCharge[client] = 0.0;
+        PartCooldown[client] = GetClientTotalCooldown(client) + GetGameTime();
         Action action;
         RefrashPartSlotArray(client, true, true);
 
@@ -613,6 +599,7 @@ public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
     if(enabled)
     {
         int client = GetClientOfUserId(GetEventInt(event, "userid"));
+        PartGetCoolTime[client] = 0.0;
         bool changed = false;
 
         if(ActivedPartSlotArray[client].Length > 0) // 아마도 될껄?
@@ -791,6 +778,12 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
         int tempEntity = entity;
         int tempPart;
 
+        if(PartGetCoolTime[client] > GetGameTime())
+        {
+            IgnoreAndKickIt(client, entity);
+            return Plugin_Continue;
+        }
+
         action = Forward_OnTouchedPartProp(tempClient, tempEntity);
         if(action == Plugin_Handled || action == Plugin_Stop)
         {
@@ -807,11 +800,7 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
         PartRank rank = view_as<PartRank>(GetPartPropInfo(entity, Info_Rank));
         int part;
         int slot;
-/*
-		if(((IsCorrectTeam(client) && CanUseSystemClass(TF2_GetPlayerClass(client)))
-        || (IsBoss(client) && CanUseSystemBoss() && rank == Rank_Another))
-        ) // FIXME:
-*/
+
         if((IsCorrectTeam(client)
         || (IsBoss(client) && CanUseSystemBoss() && rank == Rank_Another))
         )
@@ -822,8 +811,7 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
 
             slot = FindActiveSlot(client);
             tempPart = part;
-
-            Debug("확정된 파츠: %i, slot = %i, rank = %i", part, slot, view_as<int>(rank));
+            // Debug("확정된 파츠: %i, slot = %i, rank = %i", part, slot, view_as<int>(rank));
 
             if(part <= 0 || slot < 0) // 유효한 파츠이나 파츠 슬릇 체크
             {
@@ -847,6 +835,7 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
 
             SetClientPart(client, slot, part);
             ViewPart(client, part);
+            PartGetCoolTime[client] = GetGameTime() + GetConVarFloat(cvarPropCooltime);
             PrintCenterText(client, "파츠를 흭득하셨습니다!");
 
             if(IsPartActive(part))
@@ -1063,17 +1052,21 @@ void ViewPart(int client, int partIndex)
 {
     if(IsValidPart(partIndex))
     {
-        char item[500];
+        char item[300];
         char tempItem[200];
-        Format(item, sizeof(item), "방금 흭득한 파츠:");
 
+        Handle Hud = CreateHudSynchronizer();
+
+        SetHudTextParams(0.6, 0.5, 6.0 , 255, 228, 0, 185);
         GetPartString(partIndex, "name", tempItem, sizeof(tempItem));
-        Format(item, sizeof(item), "%s\n\n이름: %s", item, tempItem);
+        Format(item, sizeof(item), "방금 흭득한 파츠: %s", tempItem);
 
         GetPartString(partIndex, "ability_description", tempItem, sizeof(tempItem));
         Format(item, sizeof(item), "%s\n능력 설명: %s", item, tempItem);
 
         PrintHintText(client, item);
+
+        Hud.Close();
     }
 }
 
@@ -1566,14 +1559,13 @@ float GetClientTotalCooldown(int client)
 
 float GetClientPartCooldown(int client)
 {
-    float cooldown = PartCooldown[client] - GetGameTime();
+    float cooldown = PartCooldown[client];
     return cooldown > 0.0 ? cooldown : 0.0;
 }
 
 void SetClientPartCooldown(int client, float cooldown)
 {
-    float realCooldown = duration + GetGameTime();
-    PartCooldown[client] = realCooldown;
+    PartCooldown[client] = cooldown;
 }
 
 float GetActivePartDuration(int partIndex)
@@ -1600,23 +1592,14 @@ float GetClientActiveSlotDuration(int client, int slot)
 {
     if(IsValidSlot(client, slot))
     {
-        float duration = ActivedDurationArray[client].Get(slot) - GetGameTime();
-        float realDuration;
+        float duration = ActivedDurationArray[client].Get(slot);
 
-        if(duration > 0.0)
+        if(duration < 0.0)
         {
-            realDuration = duration;
-        }
-        else if(ActivedDurationArray[client].Get(slot) == -1.0)
-        {
-            realDuration = -1.0;
-        }
-        else
-        {
-            realDuration = 0.0;
+            duration = 0.0;
         }
 
-        return realDuration;
+        return duration;
     }
 
     return -1.0;
@@ -1626,12 +1609,7 @@ void SetClientActiveSlotDuration(int client, int slot, float duration)
 {
     if(IsValidSlot(client, slot))
     {
-        float realDuration = duration + GetGameTime();
-
-        if(realDuration <= GetGameTime() || duration <= 0.0)
-            realDuration = -1.0;
-
-        ActivedDurationArray[client].Set(slot, realDuration);
+        ActivedDurationArray[client].Set(slot, duration);
     }
 }
 
@@ -1641,7 +1619,7 @@ bool IsClientHaveDuration(int client)
     {
         if(IsValidSlot(client, count))
         {
-            if(ActivedDurationArray[client].Get(count) > GetGameTime() && ActivedDurationArray[client].Get(count) != -1.0)
+            if(ActivedDurationArray[client].Get(count) > 0.0)
                 return true;
         }
     }
