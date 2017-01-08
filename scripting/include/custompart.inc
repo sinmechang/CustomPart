@@ -204,7 +204,7 @@ native PartRank CP_RandomPartRank(bool includeAnother=false);
 *
 *
 */
-forward Action CP_OnTouchedPartProp(int client, int prop);
+forward Action CP_OnTouchedPartProp(int client, int &prop);
 
 /*
 *
@@ -218,7 +218,7 @@ forward void CP_OnTouchedPartProp_Post(int client, int prop);
 *
 *
 */
-forward Action CP_OnGetPart(int client, int prop, int partIndex);
+forward Action CP_OnGetPart(int client, int &prop, int &partIndex);
 
 /*
 *
@@ -239,7 +239,7 @@ forward Action CP_OnSlotClear(int client, int partIndex, bool gotoNextRound);
 *
 *
 */
-forward Action CP_PreActivePart(int client, int partIndex);
+forward Action CP_PreActivePart(int client, int &partIndex);
 
 /*
 *

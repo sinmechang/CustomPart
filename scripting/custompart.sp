@@ -115,12 +115,12 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, err_max)
     CreateNative("CP_IsEnabled", Native_IsEnabled);
     CreateNative("CP_RandomPartRank", Native_RandomPartRank);
 
-    OnTouchedPartProp = CreateGlobalForward("CP_OnTouchedPartProp", ET_Hook, Param_Cell, Param_Cell);
+    OnTouchedPartProp = CreateGlobalForward("CP_OnTouchedPartProp", ET_Hook, Param_Cell, Param_CellByRef);
     OnTouchedPartPropPost = CreateGlobalForward("CP_OnTouchedPartProp_Post", ET_Hook, Param_Cell, Param_Cell);
-    OnGetPart = CreateGlobalForward("CP_OnGetPart", ET_Hook, Param_Cell, Param_Cell, Param_Cell);
+    OnGetPart = CreateGlobalForward("CP_OnGetPart", ET_Hook, Param_Cell, Param_CellByRef, Param_CellByRef);
     OnGetPartPost = CreateGlobalForward("CP_OnGetPart_Post", ET_Hook, Param_Cell, Param_Cell);
     OnSlotClear = CreateGlobalForward("CP_OnSlotClear", ET_Hook, Param_Cell, Param_Cell, Param_Cell);
-    PreActivePart = CreateGlobalForward("CP_PreActivePart", ET_Hook, Param_Cell, Param_Cell);
+    PreActivePart = CreateGlobalForward("CP_PreActivePart", ET_Hook, Param_Cell, Param_CellByRef);
     OnActivedPart = CreateGlobalForward("CP_OnActivedPart", ET_Hook, Param_Cell, Param_Cell);
     OnActivedPartEnd = CreateGlobalForward("CP_OnActivedPart", ET_Hook, Param_Cell, Param_Cell);
     OnClientCooldownEnd = CreateGlobalForward("CP_OnClientCooldownEnd", ET_Hook, Param_Cell);
@@ -394,11 +394,7 @@ public Action ClientTimer(Handle timer)
 
                     int ragemeter = RoundFloat(PartCharge[target]*(PartMaxChargeDamage[target]/100.0));
 
-                    if(GetClientPartCooldown(target) > 0.0)
-                    {
-                        Format(HudMessage, sizeof(HudMessage), "액티브 파츠 쿨타임: %.1f", GetClientPartCooldown(target));
-                    }
-                    else if(IsClientHaveDuration(target))
+                    if(IsClientHaveDuration(target))
                     {
                         int activeCount=0;
 
@@ -424,6 +420,10 @@ public Action ClientTimer(Handle timer)
                         {
                             Format(HudMessage, sizeof(HudMessage), "%s 그 외 %i개!", HudMessage, activeCount - 2);
                         }
+                    }
+                    else if(GetClientPartCooldown(target) > 0.0)
+                    {
+                        Format(HudMessage, sizeof(HudMessage), "액티브 파츠 쿨타임: %.1f", GetClientPartCooldown(target));
                     }
                     else
                     {
@@ -472,9 +472,6 @@ public Action OnCallForMedic(int client, const char[] command, int args)
         PartCharge[client] = 0.0;
         PartCooldown[client] = GetClientTotalCooldown(client);
         Action action;
-        RefrashPartSlotArray(client, true, true);
-
-        // PartCooldown[client] = GetClientTotalCooldown(client);
 
         for(int count=0; count<MaxPartSlot[client]; count++)
         {
@@ -1055,18 +1052,13 @@ void ViewPart(int client, int partIndex)
         char item[300];
         char tempItem[200];
 
-        Handle Hud = CreateHudSynchronizer();
-
-        SetHudTextParams(0.6, 0.5, 6.0, 255, 228, 0, 185);
         GetPartString(partIndex, "name", tempItem, sizeof(tempItem));
         Format(item, sizeof(item), "방금 흭득한 파츠: %s", tempItem);
 
         GetPartString(partIndex, "ability_description", tempItem, sizeof(tempItem));
         Format(item, sizeof(item), "%s\n능력 설명: %s", item, tempItem);
 
-        ShowSyncHudText(client, Hud, item);
-
-        Hud.Close();
+        PrintHintText(client, item);
     }
 }
 
@@ -1949,7 +1941,7 @@ public Action Forward_OnTouchedPartProp(int client, int prop)
     Action action;
     Call_StartForward(OnTouchedPartProp);
     Call_PushCell(client);
-    Call_PushCell(prop);
+    Call_PushCellRef(prop);
     Call_Finish(action);
 
     return action;
@@ -1968,8 +1960,8 @@ public Action Forward_OnGetPart(int client, int prop, int partIndex)
     Action action;
     Call_StartForward(OnGetPart);
     Call_PushCell(client);
-    Call_PushCell(prop);
-    Call_PushCell(partIndex);
+    Call_PushCellRef(prop);
+    Call_PushCellRef(partIndex);
     Call_Finish(action);
 
     return action;
@@ -2000,7 +1992,7 @@ public Action Forward_PreActivePart(int client, int partIndex)
     Action action;
     Call_StartForward(PreActivePart);
     Call_PushCell(client);
-    Call_PushCell(partIndex);
+    Call_PushCellRef(partIndex);
     Call_Finish(action);
 
     return action;
