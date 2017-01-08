@@ -470,7 +470,7 @@ public Action OnCallForMedic(int client, const char[] command, int args)
     if(PartCharge[client] >= 100.0 && !IsClientHaveDuration(client) && GetClientPartCooldown(client) <= 0.0)
     {
         PartCharge[client] = 0.0;
-        PartCooldown[client] = GetClientTotalCooldown(client) + GetGameTime();
+        PartCooldown[client] = GetClientTotalCooldown(client);
         Action action;
         RefrashPartSlotArray(client, true, true);
 
@@ -1057,14 +1057,14 @@ void ViewPart(int client, int partIndex)
 
         Handle Hud = CreateHudSynchronizer();
 
-        SetHudTextParams(0.6, 0.5, 6.0 , 255, 228, 0, 185);
+        SetHudTextParams(0.6, 0.5, 6.0, 255, 228, 0, 185);
         GetPartString(partIndex, "name", tempItem, sizeof(tempItem));
         Format(item, sizeof(item), "방금 흭득한 파츠: %s", tempItem);
 
         GetPartString(partIndex, "ability_description", tempItem, sizeof(tempItem));
         Format(item, sizeof(item), "%s\n능력 설명: %s", item, tempItem);
 
-        PrintHintText(client, item);
+        ShowSyncHudText(client, Hud, item);
 
         Hud.Close();
     }
