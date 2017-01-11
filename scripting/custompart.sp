@@ -122,7 +122,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, err_max)
     OnSlotClear = CreateGlobalForward("CP_OnSlotClear", ET_Hook, Param_Cell, Param_Cell, Param_Cell);
     PreActivePart = CreateGlobalForward("CP_PreActivePart", ET_Hook, Param_Cell, Param_CellByRef);
     OnActivedPart = CreateGlobalForward("CP_OnActivedPart", ET_Hook, Param_Cell, Param_Cell);
-    OnActivedPartEnd = CreateGlobalForward("CP_OnActivedPart", ET_Hook, Param_Cell, Param_Cell);
+    OnActivedPartEnd = CreateGlobalForward("CP_OnActivedPartEnd", ET_Hook, Param_Cell, Param_Cell);
     OnClientCooldownEnd = CreateGlobalForward("CP_OnClientCooldownEnd", ET_Hook, Param_Cell);
 
 	return APLRes_Success;
@@ -358,7 +358,8 @@ public Action ClientTimer(Handle timer)
             else
             {
                 target = GetEntPropEnt(client, Prop_Send, "m_hObserverTarget");
-                Format(HudMessage, sizeof(HudMessage), "관전 중인 상대 파츠: (최대 슬릇: %i)", MaxPartSlot[target]);
+                if(IsValidClient(target))
+                    Format(HudMessage, sizeof(HudMessage), "관전 중인 상대 파츠: (최대 슬릇: %i)", MaxPartSlot[target]);
             }
 
             if(IsValidClient(target))
@@ -621,6 +622,9 @@ public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
 
                 action = Forward_OnSlotClear(tempClient, tempPart, tempGoToNextRound);
 
+                if(ActivedDurationArray[client].Get(target) > 0.0)
+                    Forward_OnActivedPartEnd(client, temp);
+
                 if(action == Plugin_Handled)
                 {
                     maxSlot[remainCount++] = temp;
@@ -667,7 +671,7 @@ public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
 
 public void OnTakeDamagePost(int client, int attacker, int inflictor, float damage, int damagetype)
 {
-    if(IsValidClient(client) && IsValidClient(attacker) && IsPlayerAlive(attacker))
+    if(IsValidClient(client) && IsValidClient(attacker) && IsPlayerAlive(attacker) && client != attacker)
     {
         if(PartMaxChargeDamage[attacker] > 0.0)
         {
@@ -1391,12 +1395,20 @@ void SetClientPart(int client, int slot, int value) // return: 적용된 슬릇 
 {
     if(!IsValidSlot(client, slot)) return;
 
+    int part = GetClientPart(client, slot);
+
     ActivedPartSlotArray[client].Set(slot, value);
+
+    if(IsValidPart(part))
+        Forward_OnActivedPartEnd(client, part);
 }
 
 void RefrashPartSlotArray(int client, bool holdParts=false, bool holdCooltime=false)
 {
     int beforeSize = ActivedPartSlotArray[client].Length;
+
+    ActivedPartSlotArray[client].Resize(beforeSize);
+    ActivedDurationArray[client].Resize(beforeSize);
 
     int[] beforeCell = new int[beforeSize]
     float[] beforeCooltime = new float[beforeSize]
@@ -1416,33 +1428,49 @@ void RefrashPartSlotArray(int client, bool holdParts=false, bool holdCooltime=fa
     int part;
     float cooltime;
 
-    for(int count=0; count<MaxPartSlot[client]; count++)
+    for(int count=0; count<beforeSize; count++)
     {
-        if(holdParts)
+        if(count < MaxPartSlot[client])
         {
-            part = beforeCell[count];
-            cooltime = beforeCooltime[count];
-
-            if(IsValidPart(part))
+            if(holdParts)
             {
-                ActivedPartSlotArray[client].Set(count, part);
+                part = beforeCell[count];
+                cooltime = beforeCooltime[count];
 
-                if(holdCooltime)
+                if(IsValidPart(part))
                 {
-                    ActivedDurationArray[client].Set(count, cooltime);
+                    ActivedPartSlotArray[client].Set(count, part);
+
+                    if(holdCooltime)
+                    {
+                        ActivedDurationArray[client].Set(count, cooltime);
+                    }
+                    else
+                    {
+                        ActivedDurationArray[client].Set(count, 0.0);
+                    }
                 }
             }
-//
+            else
+            {
+                ActivedPartSlotArray[client].Set(count, 0);
+                ActivedDurationArray[client].Set(count, 0.0);
+
+            }
         }
         else
         {
-            ActivedPartSlotArray[client].Set(count, 0);
-            ActivedDurationArray[client].Set(count, -1.0);
+            if(holdParts)
+            {
+                part = beforeCell[count];
 
+                if(IsValidPart(part))
+                {
+                    Forward_OnSlotClear(client, part, false);
+                }
+            }
         }
-        // Debug("%N: [%i] %i", client, count, ActivedPartSlotArray[client].Get(count));
     }
-
 }
 
 
@@ -1748,20 +1776,24 @@ bool CanUseSystemBoss()
     KvRewind(clonedHandle);
     char key[20];
 
-    do
+    if(KvGotoFirstSubKey(clonedHandle))
     {
-        KvGetSectionName(clonedHandle, key, sizeof(key));
-        if(!StrContains(key, "part"))
+        do
         {
-            ReplaceString(key, sizeof(key), "part", "");
-            if(IsValidPart(StringToInt(key)))
+            KvGetSectionName(clonedHandle, key, sizeof(key));
+            if(!StrContains(key, "part"))
             {
-                if(KvGetNum(PartKV, "able_to_boss", 0) > 0)
-                    return true;
+                ReplaceString(key, sizeof(key), "part", "");
+                if(IsValidPart(StringToInt(key)))
+                {
+                    if(KvGetNum(PartKV, "able_to_boss", 0) > 0)
+                        return true;
+                }
             }
         }
+        while(KvGotoNextKey(clonedHandle));
     }
-    while(KvGotoNextKey(clonedHandle));
+
     return false;
 }
 
@@ -1790,24 +1822,28 @@ bool CanUseSystemClass(TFClassType class)
     Handle clonedHandle = CloneHandle(PartKV);
     KvRewind(clonedHandle);
 
-    do
+    if(KvGotoFirstSubKey(clonedHandle))
     {
-        KvGetSectionName(clonedHandle, key, sizeof(key));
-        if(!StrContains(key, "part"))
+        do
         {
-            ReplaceString(key, sizeof(key), "part", "");
-            if(IsValidPart(StringToInt(key)))
+            KvGetSectionName(clonedHandle, key, sizeof(key));
+            if(!StrContains(key, "part"))
             {
-                KvGetString(PartKV, "able_to_class", classes, sizeof(classes));
-                if(classes[0] == '\0')
-                    return true;
+                ReplaceString(key, sizeof(key), "part", "");
+                if(IsValidPart(StringToInt(key)))
+                {
+                    KvGetString(PartKV, "able_to_class", classes, sizeof(classes));
+                    if(classes[0] == '\0')
+                        return true;
 
-                else if(!StrContains(classes, classnames[view_as<int>(class)]))
-                    return true;
+                    else if(!StrContains(classes, classnames[view_as<int>(class)]))
+                        return true;
+                }
             }
         }
+        while(KvGotoNextKey(clonedHandle));
     }
-    while(KvGotoNextKey(clonedHandle));
+
     return false;
 }
 
@@ -1936,7 +1972,7 @@ public Native_RandomPartRank(Handle plugin, int numParams)
     return _:RandomPartRank(GetNativeCell(1));
 }
 
-public Action Forward_OnTouchedPartProp(int client, int prop)
+public Action Forward_OnTouchedPartProp(int client, int &prop)
 {
     Action action;
     Call_StartForward(OnTouchedPartProp);
@@ -1955,7 +1991,7 @@ void Forward_OnTouchedPartProp_Post(int client, int prop)
     Call_Finish();
 }
 
-public Action Forward_OnGetPart(int client, int prop, int partIndex)
+public Action Forward_OnGetPart(int client, int &prop, int &partIndex)
 {
     Action action;
     Call_StartForward(OnGetPart);
@@ -1987,7 +2023,7 @@ public Action Forward_OnSlotClear(int client, int partIndex, bool gotoNextRound)
     return action;
 }
 
-public Action Forward_PreActivePart(int client, int partIndex)
+public Action Forward_PreActivePart(int client, int &partIndex)
 {
     Action action;
     Call_StartForward(PreActivePart);
@@ -2036,6 +2072,8 @@ void SetClientMaxSlot(int client, int maxSlot)
     MaxPartSlot[client] = maxSlot;
 
     RefrashPartSlotArray(client, true, true);
+    // ActivedPartSlotArray[client].Resize(MaxPartSlot[client]);
+    // ActivedDurationArray[client].Resize(MaxPartSlot[client]);
 }
 
 void CheckPartConfigFile()
