@@ -1460,15 +1460,13 @@ void RefrashPartSlotArray(int client, bool holdParts=false, bool holdCooltime=fa
         }
         else
         {
-            if(holdParts)
-            {
-                part = beforeCell[count];
+            part = beforeCell[count];
 
-                if(IsValidPart(part))
-                {
-                    Forward_OnSlotClear(client, part, false);
-                }
+            if(IsValidPart(part))
+            {
+                Forward_OnSlotClear(client, part, false);
             }
+
         }
     }
 }
