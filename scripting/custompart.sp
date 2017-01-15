@@ -1062,6 +1062,12 @@ void ViewPart(int client, int partIndex)
         GetPartString(partIndex, "ability_description", tempItem, sizeof(tempItem));
         Format(item, sizeof(item), "%s\n능력 설명: %s", item, tempItem);
 
+        GetPartString(partIndex, "idea_owner_nickname", tempItem, sizeof(tempItem));
+        if(tempItem[0] != '\0')
+            Format(item, sizeof(item), "%s\n아이디어 제공자: %s", item, tempItem);
+        else
+            Format(item, sizeof(item), "%s\nPOTRY SERVER ORIGINAL CUSTOMPART", item);
+
         PrintHintText(client, item);
     }
 }
