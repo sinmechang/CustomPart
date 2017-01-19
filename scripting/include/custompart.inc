@@ -199,6 +199,10 @@ native int CP_FindPart(int client, int partIndex);
 native bool CP_IsEnabled();
 
 native PartRank CP_RandomPartRank(bool includeAnother=false);
+
+native int CP_GetClientCPFlags(int client);
+
+native void CP_SetClientCPFlags(int client, int flags);
 /*
 *
 *
@@ -261,3 +265,10 @@ forward void CP_OnActivedPartEnd(int client, int partIndex);
 *
 */
 forward void CP_OnClientCooldownEnd(int client);
+
+/*
+* 0.1초마다 호출됨.
+*
+*
+*/
+forward Action CP_OnActivedPartTime(int client, int partIndex, float &duration);

@@ -52,6 +52,7 @@ Handle PreActivePart;
 Handle OnActivedPart;
 Handle OnActivedPartEnd;
 Handle OnClientCooldownEnd;
+Handle OnActivedPartTime;
 
 int g_iChatCommand=0;
 char g_strChatCommand[42][50];
@@ -114,6 +115,8 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, err_max)
     CreateNative("CP_FindPart", Native_FindPart);
     CreateNative("CP_IsEnabled", Native_IsEnabled);
     CreateNative("CP_RandomPartRank", Native_RandomPartRank);
+    CreateNative("CP_GetClientCPFlags", Native_GetClientCPFlags);
+    CreateNative("CP_SetClientCPFlags", Native_SetClientCPFlags);
 
     OnTouchedPartProp = CreateGlobalForward("CP_OnTouchedPartProp", ET_Hook, Param_Cell, Param_CellByRef);
     OnTouchedPartPropPost = CreateGlobalForward("CP_OnTouchedPartProp_Post", ET_Hook, Param_Cell, Param_Cell);
@@ -124,6 +127,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, err_max)
     OnActivedPart = CreateGlobalForward("CP_OnActivedPart", ET_Hook, Param_Cell, Param_Cell);
     OnActivedPartEnd = CreateGlobalForward("CP_OnActivedPartEnd", ET_Hook, Param_Cell, Param_Cell);
     OnClientCooldownEnd = CreateGlobalForward("CP_OnClientCooldownEnd", ET_Hook, Param_Cell);
+    OnActivedPartTime = CreateGlobalForward("CP_OnActivedPartTime", ET_Hook, Param_Cell, Param_Cell, Param_FloatByRef);
 
 	return APLRes_Success;
 }
@@ -321,19 +325,35 @@ public Action ClientTimer(Handle timer)
 
         if(IsClientHaveDuration(client))
         {
+            Action action;
+            float tempDuration;
+
             for(int count=0; count<MaxPartSlot[client]; count++)
             {
                 duration = GetClientActiveSlotDuration(client, count);
                 if(duration > 0.0)
                 {
                     duration -= 0.1;
+                    tempDuration = duration;
+
+                    action = Forward_OnActivedPartTime(client, count, tempDuration);
+                    if(action == Plugin_Changed)
+                    {
+                        duration = tempDuration;
+                    }
+                    else if(action == Plugin_Handled && action == Plugin_Stop)
+                    {
+                        continue;
+                    }
+
                     SetClientActiveSlotDuration(client, count, duration);
+
+                    if(duration <= 0.0)
+                    {
+                        Forward_OnActivedPartEnd(client, GetClientPart(client, count));
+                    }
                 }
 
-                if(duration <= 0.0)
-                {
-                    Forward_OnActivedPartEnd(client, GetClientPart(client, count));
-                }
             }
         }
         else if(PartCooldown[client] > 0.0)
@@ -600,7 +620,7 @@ public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
         PartGetCoolTime[client] = 0.0;
         bool changed = false;
 
-        if(ActivedPartSlotArray[client].Length > 0) // 아마도 될껄?
+        if(ActivedPartSlotArray[client].Length > 0 && !(CPFlags[client] & CPFLAG_DONOTCLEARSLOT))
         {
             RefrashPartSlotArray(client, true);
 
@@ -1976,6 +1996,16 @@ public Native_RandomPartRank(Handle plugin, int numParams)
     return _:RandomPartRank(GetNativeCell(1));
 }
 
+public Native_GetClientCPFlags(Handle plugin, int numParams)
+{
+    return CPFlags[GetNativeCell(1)];
+}
+
+public Native_SetClientCPFlags(Handle plugin, int numParams)
+{
+     CPFlags[GetNativeCell(1)] = GetNativeCell(2);
+}
+
 public Action Forward_OnTouchedPartProp(int client, int &prop)
 {
     Action action;
@@ -2059,6 +2089,19 @@ public void Forward_OnClientCooldownEnd(int client)
     Call_StartForward(OnClientCooldownEnd);
     Call_PushCell(client);
     Call_Finish();
+}
+
+public Action Forward_OnActivedPartTime(int client, int partIndex, float &duration)
+{
+    Action action;
+
+    Call_StartForward(OnActivedPartTime);
+    Call_PushCell(client);
+    Call_PushCell(partIndex);
+    Call_PushFloatRef(duration);
+    Call_Finish(action);
+
+    return action;
 }
 
 int FindPart(int client, int partIndex)
