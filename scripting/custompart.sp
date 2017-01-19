@@ -331,20 +331,24 @@ public Action ClientTimer(Handle timer)
             for(int count=0; count<MaxPartSlot[client]; count++)
             {
                 duration = GetClientActiveSlotDuration(client, count);
+                part = GetClientPart(client, count);
                 if(duration > 0.0)
                 {
                     duration -= 0.1;
                     tempDuration = duration;
 
-                    action = Forward_OnActivedPartTime(client, count, tempDuration);
-                    if(action == Plugin_Changed)
+                    if(IsValidPart(part))
                     {
-                        duration = tempDuration;
-                    }
-                    else if(action == Plugin_Handled && action == Plugin_Stop)
-                    {
-                        continue;
-                    }
+                        action = Forward_OnActivedPartTime(client, part, tempDuration);
+                        if(action == Plugin_Changed)
+                        {
+                            duration = tempDuration;
+                        }
+                        else if(action == Plugin_Handled || action == Plugin_Stop)
+                        {
+                            continue;
+                        }
+                    }    
 
                     SetClientActiveSlotDuration(client, count, duration);
 
