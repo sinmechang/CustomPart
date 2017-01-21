@@ -20,24 +20,24 @@ enum PartInfo
 };
 
 /*
-* 해당 슬릇의 파츠 값을 확인 함.
+* 해당 슬롯의 파츠 값을 확인 함.
 *
 * @param client 클라이언트.
-* @param slot 확인 할 슬릇
-* @return 0은 그 슬릇이 비어있다는 것, 그 외에는 파츠 값.
+* @param slot 확인 할 슬롯
+* @return 0은 그 슬롯이 비어있다는 것, 그 외에는 파츠 값.
 *
 */
 native int CP_GetClientPart(int client, int slot);
 
 /*
-* 해당 슬릇에 파츠 값을 부여 함.
+* 해당 슬롯에 파츠 값을 부여 함.
 *
 * @param client 클라이언트.
-* @param slot 부여할 슬릇
+* @param slot 부여할 슬롯
 * @param value
 * @noreturn
 *
-* 만약 slot이 플레이어의 최대 슬릇보다 클 경우에는 적용되지 않음.
+* 만약 slot이 플레이어의 최대 슬롯보다 클 경우에는 적용되지 않음.
 */
 native void CP_SetClientPart(int client, int slot, int value);
 
@@ -52,11 +52,11 @@ native void CP_SetClientPart(int client, int slot, int value);
 native bool CP_IsPartActived(int client, int partIndex);
 
 /*
-* 플레이어의 슬릇을 새로 고침
+* 플레이어의 슬롯을 새로 고침
 *
 * *** 중요 ***
-*   - 슬릇 관련을 다루기 전에는 반드시 본 함수를 사용할 것.
-*   - 만약 최대 슬릇을 건드리지 않았다면 굳이 이 함수를 쓰지 않아도 괜찮음.
+*   - 슬롯 관련을 다루기 전에는 반드시 본 함수를 사용할 것.
+*   - 만약 최대 슬롯을 건드리지 않았다면 굳이 이 함수를 쓰지 않아도 괜찮음.
 *
 * @param client 지정할 클라이언트
 * @param holdParts 새로고침 하면서 원래 있던 파츠를 유지할 것인지 지정.
@@ -72,17 +72,17 @@ native void CP_RefrashPartSlotArray(int client, bool holdParts=false, bool holdC
 * 해당 파츠가 유효한지 확인함.
 * 서버의 컨픽에 정상적으로 등록된 파츠들만을 유효한 파츠로 지정함.
 *
-* @param partIndex 확인할 파츠 갑.
+* @param partIndex 확인할 파츠 값.
 * @return 파츠가 유효할 경우 true.
 *
 */
 native bool CP_IsValidPart(int partIndex);
 
 /*
-* 해당 플레이어의 해당 슬릇이 유효한지 확인함.
+* 해당 플레이어의 해당 슬롯이 유효한지 확인함.
 *
 * @param client 클라이언트
-* @param slot  확인할 슬릇
+* @param slot  확인할 슬롯
 * @return 유효할 경우 true.
 *
 */
@@ -130,19 +130,19 @@ native void CP_SetPartPropInfo(int prop, PartInfo partinfo, any value, bool chan
 native void CP_PropToPartProp(int prop, int partIndex=0, PartRank rank=Rank_Normal, bool createLight, bool changeModel=false, bool IsFake=false);
 
 /*
-*   해당 클라이언트의 슬릇 최대량을 구함.
+*   해당 클라이언트의 슬롯 최대량을 구함.
 *
 *   @param client 구할 클라이언트
-*   @return 그 클라이언트의 슬릇값
+*   @return 그 클라이언트의 슬롯 값
 *
 */
 native int CP_GetClientMaxSlot(int client);
 
 /*
-*   해당 클라이언트의 슬릇 최대량을 구함.
+*   해당 클라이언트의 슬롯 최대량을 구함.
 *
 *   @param client 정할 클라이언트
-*   @param maxSlot 정할 슬릇크기
+*   @param maxSlot 정할 슬롯크기
 *   @noreturn
 *
 */
@@ -160,10 +160,10 @@ native void CP_SetClientMaxSlot(int client, int maxSlot);
 native bool CP_ReplacePartSlot(int client, int beforePartIndex, int afterPartIndex);
 
 /*
-*   해당 클라이언트의 비어있는 슬릇을 찾음.
+*   해당 클라이언트의 비어있는 슬롯을 찾음.
 *
 *   @param client 클라이언트
-*   @return 비어있는 파츠 슬릇값을 반환함. 아닐경우 -1.
+*   @return 비어있는 파츠 슬롯값을 반환함. 아닐경우 -1.
 *
 */
 native int CP_FindActiveSlot(int client);
