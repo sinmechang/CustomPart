@@ -114,6 +114,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, err_max)
     CreateNative("CP_AddClientPartCharge", Native_AddClientPartCharge);
     CreateNative("CP_FindPart", Native_FindPart);
     CreateNative("CP_IsEnabled", Native_IsEnabled);
+    CreateNative("CP_RandomPart", Native_RandomPart);
     CreateNative("CP_RandomPartRank", Native_RandomPartRank);
     CreateNative("CP_GetClientCPFlags", Native_GetClientCPFlags);
     CreateNative("CP_SetClientCPFlags", Native_SetClientCPFlags);
@@ -140,7 +141,7 @@ public void OnPluginStart()
       cvarPropVelocity = CreateConVar("cp_prop_velocity", "250.0", "프롭 생성시 흩어지는 최대 속도, 설정한 범위 내로 랜덤으로 속도가 정해집니다.", _, true, 0.0);
       cvarPropForNoBossTeam = CreateConVar("cp_prop_for_team", "2", "0 혹은 1은 제한 없음, 2는 레드팀에게만, 3은 블루팀에게만. (생성도 포함됨.)", _, true, 0.0, true, 2.0);
       cvarPropSize = CreateConVar("cp_prop_size", "50.0", "캡슐 섭취 범위", _, true, 0.1);
-      cvarPropCooltime = CreateConVar("cp_prop_cooltime", "5.0", "캡슐 섭취 쿨타임.", _, true, 0.1);
+      cvarPropCooltime = CreateConVar("cp_prop_cooltime", "1.0", "캡슐 섭취 쿨타임.", _, true, 0.1);
 
       RegAdminCmd("slot", TestSlot, ADMFLAG_CHEATS, "");
       RegAdminCmd("givepart", GivePart, ADMFLAG_CHEATS, "");
@@ -157,7 +158,7 @@ public void OnPluginStart()
       HookEvent("player_spawn", OnPlayerSpawn, EventHookMode_Pre);
       HookEvent("player_death", OnPlayerDeath);
 
-      // HookEvent("teamplay_round_start", OnRoundStart);
+      HookEvent("teamplay_round_start", OnRoundStart);
       HookEvent("teamplay_round_win", OnRoundEnd);
 
       CPHud = CreateHudSynchronizer();
@@ -238,6 +239,26 @@ public Action GivePart(int client, int args)
         }
 	}
 	return Plugin_Handled;
+}
+
+public Action OnRoundStart(Handle event, const char[] name, bool dont)
+{
+    int ent = -1;
+
+    float position[3];
+    float velocity[3];
+
+    while((ent = FindEntityByClassname(ent, "item_healthkit_*")) != -1)
+    {
+        GetEntPropVector(ent, Prop_Send, "m_vecOrigin", position);
+        SpawnCustomPart(RandomPartRank(), position, velocity, false);
+    }
+
+    while((ent = FindEntityByClassname(ent, "item_ammopack_*")) != -1)
+    {
+        GetEntPropVector(ent, Prop_Send, "m_vecOrigin", position);
+        SpawnCustomPart(RandomPartRank(), position, velocity, false);
+    }
 }
 
 public Action OnRoundEnd(Handle event, const char[] name, bool dont)
@@ -348,7 +369,7 @@ public Action ClientTimer(Handle timer)
                         {
                             continue;
                         }
-                    }    
+                    }
 
                     SetClientActiveSlotDuration(client, count, duration);
 
@@ -1993,6 +2014,11 @@ public Native_FindPart(Handle plugin, int numParams)
 public Native_IsEnabled(Handle plugin, int numParams)
 {
     return enabled;
+}
+
+public Native_RandomPart(Handle plugin, int numParams)
+{
+    return _:RandomPart(GetNativeCell(1), GetNativeCell(2));
 }
 
 public Native_RandomPartRank(Handle plugin, int numParams)

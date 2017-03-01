@@ -198,6 +198,8 @@ native int CP_FindPart(int client, int partIndex);
 
 native bool CP_IsEnabled();
 
+native int CP_RandomPart(int client, PartRank rank);
+
 native PartRank CP_RandomPartRank(bool includeAnother=false);
 
 native int CP_GetClientCPFlags(int client);
