@@ -88,6 +88,8 @@ float PartGetCoolTime[MAXPLAYERS+1];
 PartRank PartPropRank[MAX_EDICTS+1];
 int PartPropCustomIndex[MAX_EDICTS+1];
 
+int AllPartPropCount;
+
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, err_max)
 {
 	CreateNative("CP_GetClientPart", Native_GetClientPart);
@@ -161,6 +163,7 @@ public void OnPluginStart()
       HookEvent("teamplay_round_start", OnRoundStart);
       HookEvent("teamplay_round_win", OnRoundEnd);
 
+      AllPartPropCount = 0;
       CPHud = CreateHudSynchronizer();
       CPChargeHud = CreateHudSynchronizer();
 
@@ -251,13 +254,27 @@ public Action OnRoundStart(Handle event, const char[] name, bool dont)
     while((ent = FindEntityByClassname(ent, "item_healthkit_*")) != -1)
     {
         GetEntPropVector(ent, Prop_Send, "m_vecOrigin", position);
-        SpawnCustomPart(RandomPartRank(), position, velocity, false);
+
+        position[2] -= GetRandomFloat(3.0, 15.0);
+        int part = SpawnCustomPart(RandomPartRank(), position, velocity, false);
+
+        if(IsValidEntity(part))
+        {
+            SetEntityMoveType(part, MOVETYPE_NONE);
+        }
     }
 
     while((ent = FindEntityByClassname(ent, "item_ammopack_*")) != -1)
     {
         GetEntPropVector(ent, Prop_Send, "m_vecOrigin", position);
-        SpawnCustomPart(RandomPartRank(), position, velocity, false);
+
+        position[2] -= GetRandomFloat(3.0, 15.0);
+        int part = SpawnCustomPart(RandomPartRank(), position, velocity, false);
+
+        if(IsValidEntity(part))
+        {
+            SetEntityMoveType(part, MOVETYPE_NONE);
+        }
     }
 }
 
@@ -557,7 +574,10 @@ public void OnEntityDestroyed(int entity)
 {
     if(entity >= 0)
     {
-        PartPropRank[entity] = Rank_Normal;
+        if(PartPropRank[entity] > Rank_None)
+            AllPartPropCount--;
+
+        PartPropRank[entity] = Rank_None;
         PartPropCustomIndex[entity] = 0;
     }
 }
@@ -761,9 +781,17 @@ public Action OnPlayerDeath(Handle event, const char[] name, bool dont)
 
 int SpawnCustomPart(PartRank partRank, float position[3], float velocity[3], bool IsFake)
 {
+    if(AllPartPropCount > 50)
+    {
+        return -1;
+    }
+
     int prop = CreateEntityByName("prop_physics_override");
+
     if(IsValidEntity(prop))
     {
+        AllPartPropCount++;
+
         char modelPath[PLATFORM_MAX_PATH];
         int colors[4];
 
@@ -1246,6 +1274,8 @@ int GetValidPartCount(PartRank rank = Rank_None)
         while(KvGotoNextKey(clonedHandle));
     }
 
+    CloseHandle(clonedHandle);
+
     return count;
 }
 
@@ -1278,6 +1308,8 @@ public void GetValidPartArray(PartRank rank, int[] parts, int size)
         }
         while(KvGotoNextKey(clonedHandle) && count < size);
     }
+
+    CloseHandle(clonedHandle);
 }
 
 int RandomPart(int client, PartRank rank)
@@ -1319,6 +1351,8 @@ int RandomPart(int client, PartRank rank)
         }
         while(KvGotoNextKey(clonedHandle));
     }
+
+    CloseHandle(clonedHandle);
 
     SetRandomSeed(GetTime());
     int answer;
@@ -1843,6 +1877,8 @@ bool CanUseSystemBoss()
         while(KvGotoNextKey(clonedHandle));
     }
 
+    CloseHandle(clonedHandle);
+
     return false;
 }
 
@@ -1892,6 +1928,8 @@ bool CanUseSystemClass(TFClassType class)
         }
         while(KvGotoNextKey(clonedHandle));
     }
+
+    CloseHandle(clonedHandle);
 
     return false;
 }
