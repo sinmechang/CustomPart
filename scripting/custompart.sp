@@ -255,7 +255,7 @@ public Action OnRoundStart(Handle event, const char[] name, bool dont)
     {
         GetEntPropVector(ent, Prop_Send, "m_vecOrigin", position);
 
-        position[2] -= GetRandomFloat(3.0, 15.0);
+        position[2] += GetRandomFloat(3.0, 15.0);
         int part = SpawnCustomPart(RandomPartRank(), position, velocity, false);
 
         if(IsValidEntity(part))
@@ -268,7 +268,7 @@ public Action OnRoundStart(Handle event, const char[] name, bool dont)
     {
         GetEntPropVector(ent, Prop_Send, "m_vecOrigin", position);
 
-        position[2] -= GetRandomFloat(3.0, 15.0);
+        position[2] += GetRandomFloat(3.0, 15.0);
         int part = SpawnCustomPart(RandomPartRank(), position, velocity, false);
 
         if(IsValidEntity(part))
