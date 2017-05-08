@@ -288,7 +288,7 @@ public Action OnRoundEnd(Handle event, const char[] name, bool dont)
 
         if(ActivedPartSlotArray[client].Length > 0) // TODO: 동일한 역할들을 묶어놓기.
         {
-            RefrashPartSlotArray(client, true);
+            RefrashPartSlotArray(client, true, true);
 
             Action action;
             int remainCount = 0;
@@ -307,6 +307,12 @@ public Action OnRoundEnd(Handle event, const char[] name, bool dont)
                 tempGoToNextRound = false;
 
                 action = Forward_OnSlotClear(tempClient, tempPart, tempGoToNextRound);
+
+                float duration = GetClientActiveSlotDuration(client, target);
+
+                if(duration <= 0.0)
+                {
+                }
 
                 if(action == Plugin_Handled)
                 {
@@ -394,6 +400,17 @@ public Action ClientTimer(Handle timer)
                     {
                         Forward_OnActivedPartEnd(client, GetClientPart(client, count));
                     }
+
+                    /*
+
+
+                        duration = GetClientActiveSlotDuration(client, count);
+
+                        if(duration <= 0.0)
+                        {
+                            Forward_OnActivedPartEnd(client, GetClientPart(client, count));
+                        }
+                    */
                 }
 
             }
