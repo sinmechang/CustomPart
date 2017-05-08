@@ -312,6 +312,7 @@ public Action OnRoundEnd(Handle event, const char[] name, bool dont)
 
                 if(duration <= 0.0)
                 {
+                    Forward_OnActivedPartEnd(client, temp);
                 }
 
                 if(action == Plugin_Handled)
