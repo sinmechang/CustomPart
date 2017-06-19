@@ -139,7 +139,7 @@ public void OnPluginStart()
 {
       cvarChatCommand = CreateConVar("cp_chatcommand", "파츠,part,스킬");
 
-      cvarPropCount = CreateConVar("cp_prop_count", "1", "생성되는 프롭 갯수, 0은 생성을 안함", _, true, 0.0);
+      cvarPropCount = CreateConVar("cp_prop_count", "3", "생성되는 프롭 갯수, 0은 생성을 안함", _, true, 0.0);
       cvarPropVelocity = CreateConVar("cp_prop_velocity", "250.0", "프롭 생성시 흩어지는 최대 속도, 설정한 범위 내로 랜덤으로 속도가 정해집니다.", _, true, 0.0);
       cvarPropForNoBossTeam = CreateConVar("cp_prop_for_team", "2", "0 혹은 1은 제한 없음, 2는 레드팀에게만, 3은 블루팀에게만. (생성도 포함됨.)", _, true, 0.0, true, 2.0);
       cvarPropSize = CreateConVar("cp_prop_size", "50.0", "캡슐 섭취 범위", _, true, 0.1);
@@ -246,6 +246,7 @@ public Action GivePart(int client, int args)
 
 public Action OnRoundStart(Handle event, const char[] name, bool dont)
 {
+    /*
     int ent = -1;
 
     float position[3];
@@ -276,6 +277,7 @@ public Action OnRoundStart(Handle event, const char[] name, bool dont)
             SetEntityMoveType(part, MOVETYPE_NONE);
         }
     }
+    */
 }
 
 public Action OnRoundEnd(Handle event, const char[] name, bool dont)
@@ -1474,6 +1476,7 @@ bool ReplacePartSlot(int client, int beforePartIndex, int afterPartIndex)
 
 int FindActiveSlot(int client)
 {
+    // RefrashPartSlotArray(client, true, true);
     for(int i = 0;  i < MaxPartSlot[client]; i++)
     {
         int value = ActivedPartSlotArray[client].Get(i);
