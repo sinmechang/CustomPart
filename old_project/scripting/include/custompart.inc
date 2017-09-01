@@ -20,6 +20,22 @@ enum PartInfo
 };
 
 /*
+    TODO: For v2
+
+    - <int> CP_GetSlotPartCount(int client, int slot);
+    - CP_RemovePartOnMap(void);
+    - CP_EnableClientSlot(int client, int slot);
+    - CP_DisableClientSlot(int client, int slot, char[] reason);
+    - CP_GetSlotPartName(int client, int slot, char[] slotPartName, int buffer);
+    - CP_SetSlotPartName(int client, int slot, char[] slotPartName);
+    - <int> CP_GetAllPartCountOnMap();
+    - CP_GetAllPartOnMap(int[] &parts, int maxcount);
+
+    .. and use MethodMap.
+*/
+
+
+/*
 * 해당 슬롯의 파츠 값을 확인 함.
 *
 * @param client 클라이언트.
