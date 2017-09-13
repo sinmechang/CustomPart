@@ -44,6 +44,29 @@ bool enabled = true;
 
 int MaxPartGlobalSlot;
 float PartGetCoolTime[MAXPLAYERS+1];
+
+// TODO: 커스텀파츠 커스텀마이즈
+/*
+    등록된 파츠의 모든 값을 확인할 수 있도록 변경
+
+    아이템 능력치 적용을 메인 플러그인에서 해결할 것.
+    ㄴ 각 아이템의 기본 능력치 값을 따내야 함
+*/
+// TODO: 파츠의 흭득 로직
+/*
+    파츠의 흭득 로직은 프레임 간격으로 확인, 등록한 사이즈에 맞고 파츠가 시야에 보여야 주울 수 있도록 변경.
+*/
+// TODO: 유저 슬릇 초기화 문제
+/*
+    유저 파츠의 초기화 시점
+        - 유저 스폰 시
+        - 유저 사망 시
+        - 유저가 서버에서 퇴장 시
+
+
+*/
+// TODO: 파츠가 근처에 있는 사람에게는 메세지 허드로 무슨 파츠인지 보여줘야함.
+
 /*
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, err_max)
 {
@@ -317,6 +340,9 @@ public Action FakePickup(Handle timer, int entRef)
 
 void CheckPartConfigFile()
 {
+    // 기본 파츠 모델 캐시 및 다운로드 테이블 등록
+    // 유저 공용 파츠 슬릇을 구함
+    // "configs/custompart.cfg"에서 "setting"가 없을 경우, 플러그인이 비활성화됩니다.
     if(GlobalPartKV != INVALID_HANDLE)
     {
         GlobalPartKV.Close();
@@ -398,6 +424,10 @@ void CheckPartConfigFile()
 
 void CheckPartDataFile()
 {
+    // 파츠의 데이터를 GlobalPartDataKV에 불러옵니다.
+    // 특정 파츠의 모델, 텍스쳐를 캐시 및 다운로드 테이블에 등록합니다.
+    //
+
     if(GlobalPartDataKV != INVALID_HANDLE)
     {
         GlobalPartDataKV.Close();
@@ -428,14 +458,51 @@ void CheckPartDataFile()
 
     for(int loop=0; loop<partCount; loop++)
     {
-        // TODO: 파츠 커스텀 모델 다운로드/캐시
+        char temp[12];
+        char path[PLATFORM_MAX_PATH];
+        char tempPath[PLATFORM_MAX_PATH];
+        char modelExtensions[][] = {".mdl", ".dx80.vtx", ".dx90.vtx", ".sw.vtx", ".vvd"};
 
+        Format(temp, sizeof(temp), "part%i", partArray[loop]);
+
+        if(!GlobalPartDataKV.JumpToKey(temp))
+            continue;
+
+        GlobalPartDataKV.GetString("part_model", tempPath, sizeof(tempPath));
+        for(int i=0; i<sizeof(modelExtensions); i++)
+        {
+            Format(path, sizeof(path), "%s%s", tempPath, modelExtensions[i]);
+
+            if(!FileExists(path, true))     continue;
+
+            if(i == 0)
+                PrecacheModel(path);
+            AddFileToDownloadsTable(path);
+        }
+
+        if(!GlobalPartDataKV.JumpToKey("part_mat"))
+        {
+            LogMessage("''%s'' NOT HAVE part_mat", temp);
+            continue;
+        }
+
+        char matExtensions[][]={".vmt", ".vtf"};
+
+        for(int i=0; i<sizeof(matExtensions); i++)
+        {
+            Format(path, sizeof(path), "%s%s", tempPath, matExtensions[i]);
+
+            if(!FileExists(path, true))     continue;
+
+            AddFileToDownloadsTable(path);
+        }
     }
 
 }
 
 public void GetPartModelString(int partIndex = 0, PartRank partRank, char[] model, int bufferLength)
 {
+    // TODO: partIndex의 관계를 확실히 할 것
     if(partIndex <= 0)
     {
         KeyValues kv = new KeyValues("CustomPart");
@@ -459,7 +526,7 @@ public void GetPartModelString(int partIndex = 0, PartRank partRank, char[] mode
     {
         KeyValues kv = new KeyValues("CustomPartData");
 
-        kv.Import(GlobalPartKV);
+        kv.Import(GlobalPartDataKV);
         kv.Rewind();
     }
 
