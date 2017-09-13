@@ -45,6 +45,10 @@ bool enabled = true;
 int MaxPartGlobalSlot;
 float PartGetCoolTime[MAXPLAYERS+1];
 
+// TODO: Freak Fortress 2와 호환이 가능하게 설계해야함.
+/*
+    보스가 파츠를 주울 수 있는 지의 여부 파악
+*/
 // TODO: 커스텀파츠 커스텀마이즈
 /*
     등록된 파츠의 모든 값을 확인할 수 있도록 변경
@@ -54,7 +58,10 @@ float PartGetCoolTime[MAXPLAYERS+1];
 */
 // TODO: 파츠의 흭득 로직
 /*
-    파츠의 흭득 로직은 프레임 간격으로 확인, 등록한 사이즈에 맞고 파츠가 시야에 보여야 주울 수 있도록 변경.
+    파츠의 흭득 로직은 프레임 간격으로 확인, 등록한 사이즈 범위 내에 있고 파츠가 시야에 보여야 주울 수 있도록 변경.
+
+    예전과는 다르게, 팀 제한을 삭제시킬 것.
+    파츠의
 */
 // TODO: 유저 슬릇 초기화 문제
 /*
@@ -66,6 +73,15 @@ float PartGetCoolTime[MAXPLAYERS+1];
 
 */
 // TODO: 파츠가 근처에 있는 사람에게는 메세지 허드로 무슨 파츠인지 보여줘야함.
+// TODO: MethodMap을 사용을 할까?
+/*
+    MethodMap
+
+        - CustomPartProp
+            - propIndex
+            - partIndex
+            - parentIndex
+*/
 
 /*
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, err_max)
