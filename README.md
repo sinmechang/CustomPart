@@ -1,3 +1,7 @@
-# CustomPart
+# CustomPart (커스텀파츠)
 
-Making in process..
+나만의 능력을 만들자!!
+
+----
+
+# 이건 뭔가요?
