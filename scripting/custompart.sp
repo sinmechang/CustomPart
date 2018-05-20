@@ -18,7 +18,6 @@ Core Plugin By Nopied◎
 #include <sdkhooks>
 #include <tf2>
 #include <tf2_stocks>
-#include <freak_fortress_2>
 #include <custompart>
 
 #define PLUGIN_NAME "CustomPart Core"
@@ -895,10 +894,8 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
         int part;
         int slot;
 
-        if((IsCorrectTeam(client)
-        || (IsBoss(client) && CanUseSystemBoss() && rank == Rank_Another))
-        )
-		{
+        if(IsCorrectTeam(client))
+        {
             part = GetPartPropInfo(entity, Info_CustomIndex);
             if(!IsValidPart(part))
                 part = RandomPart(client, rank);
@@ -1357,8 +1354,7 @@ int RandomPart(int client, PartRank rank)
                 {
                     if(part <= 0) continue;
 
-                    if(((isBoss && CanUsePartBoss(part))
-                    || (!isBoss && CanUsePartClass(part, class) && !CanUsePartBoss(part))) // FIXME: 보스의 파츠를 인간도 먹어버림.
+                    if(CanUsePartClass(part, class)
                     && GetPartRank(part) == rank && IsCanUseWeaponPart(client, part)
                     && KvGetNum(clonedHandle, "not_able_in_random", 0) <= 0
                     )
@@ -1865,6 +1861,7 @@ void PropToPartProp(int prop, int partIndex=0, PartRank rank=Rank_Normal, bool c
     DispatchSpawn(prop);
 }
 
+/*
 bool CanUsePartBoss(int partIndex)
 {
     if(IsValidPart(partIndex))
@@ -1873,7 +1870,8 @@ bool CanUsePartBoss(int partIndex)
     }
     return false;
 }
-
+*/
+/*
 bool CanUseSystemBoss()
 {
     Handle clonedHandle = CloneHandle(PartKV);
@@ -1902,6 +1900,7 @@ bool CanUseSystemBoss()
 
     return false;
 }
+*/
 
 bool CanUsePartClass(int partIndex, TFClassType class)
 {
@@ -2504,9 +2503,4 @@ stock bool CheckCollision(float cylinderOrigin[3], float colliderOrigin[3], floa
 		return false;
 */
 	return GetVectorDistance(cylinderOrigin, colliderOrigin) <= maxDistance;
-}
-
-stock bool IsBoss(int client)
-{
-    return FF2_GetBossIndex(client) != -1;
 }
