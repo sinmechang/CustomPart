@@ -70,7 +70,6 @@ Handle cvarPropForNoBossTeam;
 Handle cvarPropSize;
 Handle cvarPropCooltime;
 
-int NeedHelpPart;
 int CPFlags[MAXPLAYERS+1];
 
 int MaxPartSlot[MAXPLAYERS+1];
@@ -1437,7 +1436,6 @@ void NoticePart(int client, int partIndex)
     GetPartString(partIndex, "name", partName, sizeof(partName));
 
     CPrintToChatAll("{yellow}[CP]{default} {red}%N{default}님의 {limegreen}%s{default} 발동!", client, partName);
-    NeedHelpPart = partIndex;
 }
 
 void AddPartCharge(int client, float charge)
