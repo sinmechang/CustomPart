@@ -12,6 +12,8 @@
 Core Plugin By Nopied◎
 */
 
+//
+
 #include <sourcemod>
 #include <morecolors>
 #include <sdktools>
@@ -53,10 +55,10 @@ Handle OnActivedPartEnd;
 Handle OnClientCooldownEnd;
 Handle OnActivedPartTime;
 
-int g_iChatCommand=0;
+int g_iChatCommand = 0;
 char g_strChatCommand[42][50];
 
-int MaxPartGlobalSlot=1;
+int MaxPartGlobalSlot = 1;
 
 bool enabled;
 
@@ -91,7 +93,7 @@ int AllPartPropCount;
 
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, err_max)
 {
-	CreateNative("CP_GetClientPart", Native_GetClientPart);
+    CreateNative("CP_GetClientPart", Native_GetClientPart);
     CreateNative("CP_SetClientPart", Native_SetClientPart);
     CreateNative("CP_IsPartActived", Native_IsPartActived);
     CreateNative("CP_RefrashPartSlotArray", Native_RefrashPartSlotArray);
@@ -131,7 +133,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, err_max)
     OnClientCooldownEnd = CreateGlobalForward("CP_OnClientCooldownEnd", ET_Hook, Param_Cell);
     OnActivedPartTime = CreateGlobalForward("CP_OnActivedPartTime", ET_Hook, Param_Cell, Param_Cell, Param_FloatByRef);
 
-	return APLRes_Success;
+    return APLRes_Success;
 }
 
 public void OnPluginStart()
@@ -182,42 +184,41 @@ public void OnPluginStart()
 public Action GivePart(int client, int args)
 {
     if(!enabled)
-	{
-		return Plugin_Continue;
-	}
+    {
+        return Plugin_Continue;
+    }
 
-	if(args != 2)
-	{
-		CReplyToCommand(client, "{yellow}[CP]{default} Usage: !givepart <target> <points>");
-		return Plugin_Handled;
-	}
+    if(args != 2)
+    {
+        CReplyToCommand(client, "{yellow}[CP]{default} Usage: !givepart <target> <points>");
+        return Plugin_Handled;
+    }
 
     char num[25];
     int part;
-	char stringPoints[8];
-	char pattern[PLATFORM_MAX_PATH];
-	GetCmdArg(1, pattern, sizeof(pattern));
-	GetCmdArg(2, num, sizeof(num));
-	part = StringToInt(num);
+    char pattern[PLATFORM_MAX_PATH];
+    GetCmdArg(1, pattern, sizeof(pattern));
+    GetCmdArg(2, num, sizeof(num));
+    part = StringToInt(num);
 
-	char targetName[MAX_TARGET_LENGTH];
-	int targets[MAXPLAYERS], matches;
-	bool targetNounIsMultiLanguage;
+    char targetName[MAX_TARGET_LENGTH];
+    int targets[MAXPLAYERS], matches;
+    bool targetNounIsMultiLanguage;
 
-	if((matches=ProcessTargetString(pattern, client, targets, sizeof(targets), 0, targetName, sizeof(targetName), targetNounIsMultiLanguage))<=0)
-	{
-		ReplyToTargetError(client, matches);
-		return Plugin_Handled;
-	}
+    if((matches=ProcessTargetString(pattern, client, targets, sizeof(targets), 0, targetName, sizeof(targetName), targetNounIsMultiLanguage))<=0)
+    {
+        ReplyToTargetError(client, matches);
+        return Plugin_Handled;
+    }
 
     if(!IsValidPart(part)) return Plugin_Handled;
 
-	if(matches>1)
-	{
-		for(int target; target<matches; target++)
-		{
-			if(!IsClientSourceTV(targets[target]) && !IsClientReplay(targets[target]))
-			{
+    if(matches>1)
+    {
+        for(int target; target<matches; target++)
+        {
+            if(!IsClientSourceTV(targets[target]) && !IsClientReplay(targets[target]))
+            {
                 int slot = FindActiveSlot(targets[target]);
                 if(IsValidSlot(targets[target], slot))
                 {
@@ -227,10 +228,10 @@ public Action GivePart(int client, int args)
                     CPrintToChatAll("{yellow}[CP]{default} %N님이 %N에게 %i가 추가됨.", client, targets[target], part);
                 }
             }
-		}
-	}
-	else
-	{
+        }
+    }
+    else
+    {
         int slot = FindActiveSlot(targets[0]);
         if(IsValidSlot(targets[0], slot))
         {
@@ -239,8 +240,8 @@ public Action GivePart(int client, int args)
             Forward_OnGetPart_Post(targets[0], part);
             CPrintToChatAll("{yellow}[CP]{default} %N님이 %N에게 %i가 추가됨.", client, targets[0], part);
         }
-	}
-	return Plugin_Handled;
+    }
+    return Plugin_Handled;
 }
 
 public Action OnRoundStart(Handle event, const char[] name, bool dont)
@@ -540,12 +541,12 @@ public Action OnCallForMedic(int client, const char[] command, int args)
         return Plugin_Continue;
 
     char arg1[4]; char arg2[4];
-	GetCmdArg(1, arg1, sizeof(arg1));
-	GetCmdArg(2, arg2, sizeof(arg2));
-	if(StringToInt(arg1) || StringToInt(arg2))  //We only want "voicemenu 0 0"-thanks friagram for pointing out edge cases
-	{
-		return Plugin_Continue;
-	}
+    GetCmdArg(1, arg1, sizeof(arg1));
+    GetCmdArg(2, arg2, sizeof(arg2));
+    if(StringToInt(arg1) || StringToInt(arg2))  //We only want "voicemenu 0 0"-thanks friagram for pointing out edge cases
+    {
+        return Plugin_Continue;
+    }
 
     if(!IsClientHaveActivePart(client)) return Plugin_Continue;
 
@@ -603,7 +604,7 @@ public void OnEntityDestroyed(int entity)
 
 public void OnMapStart()
 {
-	ChangeChatCommand();
+    ChangeChatCommand();
     CheckPartConfigFile();
     CreateTimer(0.2, PrecacheTimer);
 
@@ -772,17 +773,17 @@ public Action OnPlayerDeath(Handle event, const char[] name, bool dont)
 {
     int client = GetClientOfUserId(GetEventInt(event, "userid"));
 
-  	if(!enabled || !IsCorrectTeam(client) || CheckRoundState() != 1)
-  	{
-    	return Plugin_Continue;
-  	}
+    if(!enabled || !IsCorrectTeam(client) || CheckRoundState() != 1)
+    {
+        return Plugin_Continue;
+    }
 
-	bool IsFake = false;
-	if(GetEventInt(event, "death_flags") & TF_DEATHFLAG_DEADRINGER)
-		IsFake = true;
+    bool IsFake = false;
+    if(GetEventInt(event, "death_flags") & TF_DEATHFLAG_DEADRINGER)
+        IsFake = true;
 
-  	for(int count = 0; count < GetConVarInt(cvarPropCount); count++)
-  	{
+    for(int count = 0; count < GetConVarInt(cvarPropCount); count++)
+    {
         float position[3];
         GetEntPropVector(client, Prop_Send, "m_vecOrigin", position);
 
@@ -837,7 +838,6 @@ int SpawnCustomPart(PartRank partRank, float position[3], float velocity[3], boo
         {
             CreateTimer(2.0, FakePickup, EntIndexToEntRef(prop));
             SDKHook(prop, SDKHook_SetTransmit, FakePropTransmit);
-
         }
         else
         {
@@ -846,7 +846,6 @@ int SpawnCustomPart(PartRank partRank, float position[3], float velocity[3], boo
         return prop;
     }
     return -1;
-
 }
 
 public Action FakePropTransmit(int entity, int client)
@@ -859,13 +858,13 @@ public Action FakePropTransmit(int entity, int client)
 
 public Action OnPickup(Handle timer, int entRef) // Copied from FF2
 {
-	int entity = EntRefToEntIndex(entRef);
-	if(!IsValidEntity(entity))
-		return Plugin_Handled;
+    int entity = EntRefToEntIndex(entRef);
+    if(!IsValidEntity(entity))
+        return Plugin_Handled;
 
-	int client = IsEntityStuck(entity);
-	if(IsValidClient(client))
-	{
+    int client = IsEntityStuck(entity);
+    if(IsValidClient(client))
+    {
         Action action;
         int tempClient = client;
         int tempEntity = entity;
@@ -934,17 +933,17 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
                 PartMaxChargeDamage[client] += GetPartMaxChargeDamage(part);
             }
 
-			AcceptEntityInput(entity, "kill");
-			return Plugin_Handled;
-		}
-		else
-		{
-		  KickEntity(client, entity);
-		}
-	}
+            AcceptEntityInput(entity, "kill");
+            return Plugin_Handled;
+        }
+        else
+        {
+            KickEntity(client, entity);
+        }
+    }
 
-	CreateTimer(0.05, OnPickup, EntIndexToEntRef(entity));
-	return Plugin_Continue;
+    CreateTimer(0.05, OnPickup, EntIndexToEntRef(entity));
+    return Plugin_Continue;
 }
 
 void IgnoreAndKickIt(int client, int prop)
@@ -979,32 +978,32 @@ public Action FakePickup(Handle timer, int entRef)
 
 public Action Listener_Say(int client, const char[] command, int argc)
 {
-	if(!IsValidClient(client)) return Plugin_Continue;
+    if(!IsValidClient(client)) return Plugin_Continue;
 
-	char strChat[100];
-	char temp[3][64];
-	GetCmdArgString(strChat, sizeof(strChat));
+    char strChat[100];
+    char temp[3][64];
+    GetCmdArgString(strChat, sizeof(strChat));
 
-	int start;
+    int start;
 
-	if(strChat[start] == '"') start++;
-	if(strChat[start] == '!' || strChat[start] == '/') start++;
-	strChat[strlen(strChat)-1] = '\0';
-	ExplodeString(strChat[start], " ", temp, 3, 64, true);
+    if(strChat[start] == '"') start++;
+    if(strChat[start] == '!' || strChat[start] == '/') start++;
+    strChat[strlen(strChat)-1] = '\0';
+    ExplodeString(strChat[start], " ", temp, 3, 64, true);
 
-	for (int i=0; i<=g_iChatCommand; i++)
-	{
-		if(StrEqual(temp[0], g_strChatCommand[i], true))
-		{
-			if(temp[1][0] != '\0')
-			{
-				return Plugin_Continue;
-			}
+    for (int i=0; i<=g_iChatCommand; i++)
+    {
+        if(StrEqual(temp[0], g_strChatCommand[i], true))
+        {
+            if(temp[1][0] != '\0')
+            {
+                return Plugin_Continue;
+            }
 
-			ViewSlotPart(client);
-			return Plugin_Handled;
-		}
-	}
+            ViewSlotPart(client);
+            return Plugin_Handled;
+        }
+    }
 
     if(StrEqual(temp[0], "파츠도감", true)
     || StrEqual(temp[0], "partbook", true)
@@ -1019,7 +1018,7 @@ public Action Listener_Say(int client, const char[] command, int argc)
         return Plugin_Handled;
     }
 
-	return Plugin_Continue;
+    return Plugin_Continue;
 }
 
 void ViewPartBook(int client)
@@ -1058,7 +1057,6 @@ public int OnSelectedBook(Menu menu, MenuAction action, int client, int item)
 
 void ViewPartBookItem(int client, PartRank rank, int pos)
 {
-    char partName[80];
     char item[500];
     char tempItem[200];
 
@@ -1336,7 +1334,6 @@ int RandomPart(int client, PartRank rank)
     int part;
 
     char key[20];
-    bool isBoss = IsBoss(client);
     TFClassType class = TF2_GetPlayerClass(client);
 
     Handle clonedHandle = CloneHandle(PartKV);
@@ -1688,6 +1685,7 @@ void SetClientPartCooldown(int client, float cooldown)
     PartCooldown[client] = cooldown;
 }
 
+
 float GetActivePartDuration(int partIndex)
 {
     if(IsValidPart(partIndex))
@@ -1698,6 +1696,8 @@ float GetActivePartDuration(int partIndex)
     return 0.0;
 }
 
+
+
 float GetActivePartCooldown(int partIndex)
 {
     if(IsValidPart(partIndex))
@@ -1707,6 +1707,7 @@ float GetActivePartCooldown(int partIndex)
 
     return 0.0;
 }
+
 
 float GetClientActiveSlotDuration(int client, int slot)
 {
@@ -1917,7 +1918,7 @@ bool CanUsePartClass(int partIndex, TFClassType class)
     }
     return false;
 }
-
+/*
 bool CanUseSystemClass(TFClassType class)
 {
     char classnames[][] = {"", "scout", "sniper", "soldier", "demoman", "medic", "heavy", "pyro", "spy", "engineer"};
@@ -1953,6 +1954,7 @@ bool CanUseSystemClass(TFClassType class)
 
     return false;
 }
+*/
 
 public Native_GetClientPart(Handle plugin, int numParams)
 {
@@ -2267,7 +2269,7 @@ void CheckPartConfigFile()
 
           Format(key, sizeof(key), "part_%s_mat", rankExtensions[count]);
 
-          for(int i=0; i<sizeof(matExtensions); i++)
+          for(int i = 0; i < sizeof(matExtensions); i++)
           {
               KvGetString(PartKV, key, path, sizeof(path));
               Format(path, sizeof(path), "%s%s", path, matExtensions[i]);
@@ -2489,7 +2491,7 @@ stock void TF2_SetGlowColor(int ent, const int colors[4])
     AcceptEntityInput(ent, "Disable");
 
     char strGlowColor[18];
-	Format(strGlowColor, sizeof(strGlowColor), "%i %i %i %i", colors[0], colors[1], colors[2], colors[3]);
+    Format(strGlowColor, sizeof(strGlowColor), "%i %i %i %i", colors[0], colors[1], colors[2], colors[3]);
 
     DispatchKeyValue(ent, "GlowColor", strGlowColor);
     AcceptEntityInput(ent, "Enable");
@@ -2498,9 +2500,9 @@ stock void TF2_SetGlowColor(int ent, const int colors[4])
 
 stock bool CheckCollision(float cylinderOrigin[3], float colliderOrigin[3], float maxDistance)// (float cylinderOrigin[3], float colliderOrigin[3], float maxDistance, float zMin, float zMax)
 {
-/*
-	if (colliderOrigin[2] < zMin || colliderOrigin[2] > zMax)
-		return false;
-*/
-	return GetVectorDistance(cylinderOrigin, colliderOrigin) <= maxDistance;
+    /*
+    if (colliderOrigin[2] < zMin || colliderOrigin[2] > zMax)
+    return false;
+    */
+    return GetVectorDistance(cylinderOrigin, colliderOrigin) <= maxDistance;
 }
