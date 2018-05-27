@@ -1,3 +1,9 @@
+#if defined __custompart_included
+	#endinput
+#endif
+
+#define __custompart_included
+
 
 #define CPFLAG_DONOTCLEARSLOT (1<<1)
 #define CPFLAG_DISABLE_HUD (1<<2)
@@ -33,7 +39,257 @@ enum PartInfo
 
     .. and use MethodMap.
 */
+enum ClientValueType
+{
+    Client_Index, // Just client index.
+    Client_Flags, // CPFlags
+	Client_ActiveCooldown, // PartCooldown
+	Client_GetCoolTime, // PartGetCoolTime
 
+	Client_Charge, // PartCharge
+	Client_MaxChargeDamage, // PartMaxChargeDamage
+
+	Client_MaxSlotCount, // MaxPartSlot
+	Client_PartSlot, // NOTE: This is array.
+	/*
+		ActivedPartSlotArray
+		ActivedDurationArray
+	*/
+    ClientValue_Last // NOTE: Keep this at this position.
+};
+
+enum SlotValueType
+{
+	Slot_SlotIndex,
+	Slot_PartIndex,
+	Slot_Duration,
+
+	SlotValue_Last
+};
+
+
+methodmap CPPart < ArrayList {
+
+}
+
+methodmap CPPartProp < ArrayList {
+
+}
+
+methodmap CPClientPartSlot < ArrayList {
+	public CPClientPartSlot(int maxSlot)
+    {
+        CPClientPartSlot array = view_as<CPClientPartSlot>(new ArrayList(4, maxSlot));
+
+		for(int slotLoop = 0; slotLoop < maxSlot; slotLoop++)
+		{
+			ArrayList insideArray = new ArrayList(4, view_as<int>(SlotValue_Last));
+			for(int loop = 0; loop < view_as<int>(SlotValue_Last); loop++)
+			{
+				insideArray.Set(loop, 0);
+			}
+			array.Set(insideArray);
+		}
+
+        return array;
+    }
+/*
+	// Unused for now :3
+    public any GetValue(SlotValueType valueType)
+	{
+		return this.Get(view_as<int>(valueType));
+	}
+
+	public void SetValue(SlotValueType valueType, any value)
+	{
+		this.Set(view_as<int>(valueType), value);
+	}
+*/
+	public CPClientPartSlot KillSelf()
+	{
+		ArrayList insideArray;
+
+		for(int slotLoop = 0; slotLoop < this.Length; slotLoop++)
+		{
+			insideArray = this.Get(slotLoop);
+			delete insideArray;
+		}
+
+		delete this;
+		return null;
+	}
+
+	public void ResizeSlot(int size)
+	{
+		int beforeSize = this.Length - 1;
+		int afterSize = size - 1;
+		ArrayList array;
+
+		if(size < beforeSize)
+		{
+			for(; beforeSize >= afterSize; beforeSize--)
+			{
+				array = this.Get(beforeSize);
+				delete array;
+			}
+
+			this.Resize(size);
+		}
+		else if(size > beforeSize)
+		{
+			this.Resize(size);
+
+			for(beforeSize++; beforeSize <= afterSize; beforeSize++)
+			{
+				ArrayList insideArray = new ArrayList(4, view_as<int>(SlotValue_Last));
+				this.Set(beforeSize, insideArray);
+			}
+		}
+	}
+
+	public int GetPartIndex(int slot)
+	{
+		ArrayList insideArray = this.Get(slot);
+
+		return insideArray.Get(view_as<int>(Slot_PartIndex));
+	}
+
+	public void SetPartIndex(int slot, int partIndex)
+	{
+		ArrayList insideArray = this.Get(slot);
+		insideArray.Set(view_as<int>(Slot_PartIndex), partIndex);
+	}
+
+	public float GetPartActiveDuration(int slot)
+	{
+		ArrayList insideArray = this.Get(slot);
+
+		return insideArray.Get(view_as<int>(Slot_Duration)) - GetGameTime();
+	}
+
+	public float SetPartActiveDuration(int slot, float duration)
+	{
+		ArrayList insideArray = this.Get(slot);
+		insideArray.Set(view_as<int>(Slot_Duration), duration + GetGameTime());
+	}
+}
+
+methodmap CPClient < ArrayList {
+    public CPClient(int client, int maxSlotCount)
+    {
+        CPClient array = view_as<CPClient>(new ArrayList(4, view_as<int>(ClientValue_Last)));
+
+        for(int loop = 0; loop < view_as<int>(ClientValue_Last); loop++)
+		{
+			array.Set(loop, 0);
+		}
+
+        array.Set(view_as<int>(Client_Index), client);
+		array.Set(view_as<int>(Client_PartSlot), new CPClientPartSlot(maxSlotCount));
+
+        return array;
+    }
+
+    public any GetValue(ClientValueType valueType)
+	{
+		return this.Get(view_as<int>(valueType));
+	}
+
+	public void SetValue(ClientValueType valueType, any value)
+	{
+		this.Set(view_as<int>(valueType), value);
+	}
+
+	public CPClient KillSelf()
+	{
+		CPClientPartSlot array = this.GetValue(Client_PartSlot);
+		delete array;
+		delete this;
+
+		return null; // Always!
+	}
+
+	property int Index {
+		public get()
+		{
+			return this.GetValue(Client_Index);
+		}
+	}
+
+	property int Flags {
+		public get()
+		{
+			return this.GetValue(Client_Flags);
+		}
+
+		public set(const int flags)
+		{
+			this.SetValue(Client_Flags, flags);
+		}
+	}
+
+	property float ActiveCooldown {
+		public get()
+		{
+			return this.GetValue(Client_ActiveCooldown) - GetGameTime();
+		}
+
+		public set(const float time)
+		{
+			this.SetValue(Client_ActiveCooldown, time + GetGameTime());
+		}
+	}
+
+	property float GetCoolTime {
+		public get()
+		{
+			return this.GetValue(Client_GetCoolTime) - GetGameTime();
+		}
+
+		public set(const float cooltime)
+		{
+			this.SetValue(Client_GetCoolTime, cooltime + GetGameTime());
+		}
+	}
+
+	property float Charge {
+		public get()
+		{
+			return this.GetValue(Client_Charge);
+		}
+
+		public set(const float charge)
+		{
+			this.SetValue(Client_Charge, charge);
+		}
+	}
+
+	property float MaxChargeDamage {
+		public get()
+		{
+			return this.GetValue(Client_MaxChargeDamage);
+		}
+
+		public set(const float maxChargeDamage)
+		{
+			this.SetValue(Client_MaxChargeDamage, maxChargeDamage);
+		}
+	}
+
+	property int MaxSlotCount {
+		public get()
+		{
+			return this.GetValue(Client_MaxSlotCount);
+		}
+
+		public set(const int maxSlotCount)
+		{
+			CPClientPartSlot array = this.GetValue(Client_PartSlot);
+			array.ResizeSlot(maxSlotCount);
+			this.SetValue(Client_MaxSlotCount, maxSlotCount);
+		}
+	}
+}
 
 /*
 * 해당 슬롯의 파츠 값을 확인 함.
