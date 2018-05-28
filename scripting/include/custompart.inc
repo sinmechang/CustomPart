@@ -289,6 +289,13 @@ methodmap CPClient < ArrayList {
 			this.SetValue(Client_MaxSlotCount, maxSlotCount);
 		}
 	}
+
+	property CPClientPartSlot PartSlot {
+		public get()
+		{
+			return this.GetValue(Client_PartSlot);
+		}
+	}
 }
 
 /*
