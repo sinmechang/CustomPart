@@ -41,6 +41,14 @@ enum PartInfo
 
     .. and use MethodMap.
 */
+enum PartValueType
+{
+	Part_Index,
+	Part_Flags,
+
+	PartValue_Last
+};
+
 enum ClientValueType
 {
     Client_Index, // Just client index.
@@ -71,7 +79,50 @@ enum SlotValueType
 
 
 methodmap CPPart < ArrayList {
+	public CPPart(int partIndex)
+	{
+		CPPart array = view_as<CPPart>(new ArrayList(4, PartValue_Last));
 
+		for(int loop = 0; loop < view_as<int>(PartValue_Last); loop++)
+		{
+			array.Set(loop, 0);
+		}
+
+		array.Set(view_as<int>(Part_Index), partIndex);
+		return array;
+	}
+
+	public any GetValue(PartValueType valueType)
+	{
+		return this.Get(view_as<int>(valueType));
+	}
+
+	public void SetValue(PartValueType valueType, any value)
+	{
+		this.Set(view_as<int>(valueType), value);
+	}
+
+	property int Index {
+		public get()
+		{
+			return this.GetValue(Part_Index);
+		}
+		public set(int partIndex)
+		{
+			return this.SetValue(Part_Index, partIndex);
+		}
+	}
+
+	property int Flags {
+		public get()
+		{
+			return this.GetValue(Part_Flags);
+		}
+		public set(int flags)
+		{
+			return this.SetValue(Part_Flags, flags);
+		}
+	}
 }
 
 methodmap CPPartProp < ArrayList {
