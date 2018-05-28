@@ -4,6 +4,8 @@
 
 #define __custompart_included
 
+#include "custompart/forwards.sp"
+
 
 #define CPFLAG_DONOTCLEARSLOT (1<<1)
 #define CPFLAG_DISABLE_HUD (1<<2)
