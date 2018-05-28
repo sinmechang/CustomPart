@@ -109,7 +109,7 @@ methodmap CPPart < ArrayList {
 		}
 		public set(int partIndex)
 		{
-			return this.SetValue(Part_PartIndex, partIndex);
+			this.SetValue(Part_PartIndex, partIndex);
 		}
 	}
 
@@ -120,9 +120,16 @@ methodmap CPPart < ArrayList {
 		}
 		public set(int flags)
 		{
-			return this.SetValue(Part_Flags, flags);
+			this.SetValue(Part_Flags, flags);
 		}
 	}
+/*
+	public Action TriggerOnGet(int client, CPPartProp partprop = null)
+	{
+		int propIndex =
+		Forward_OnGetPart(client, )
+	}
+*/
 }
 
 methodmap CPPartProp < ArrayList {
@@ -131,8 +138,8 @@ methodmap CPPartProp < ArrayList {
 
 methodmap CPClientPartSlot < ArrayList {
 	public CPClientPartSlot(int maxSlot)
-    {
-        CPClientPartSlot array = view_as<CPClientPartSlot>(new ArrayList(4, maxSlot));
+	{
+		CPClientPartSlot array = view_as<CPClientPartSlot>(new ArrayList(4, maxSlot));
 
 		for(int slotLoop = 0; slotLoop < maxSlot; slotLoop++)
 		{
@@ -141,11 +148,11 @@ methodmap CPClientPartSlot < ArrayList {
 			{
 				insideArray.Set(loop, 0);
 			}
-			array.Set(insideArray);
+			array.Set(slotLoop, insideArray);
 		}
 
-        return array;
-    }
+		return array;
+	}
 /*
 	// Unused for now :3
     public any GetValue(SlotValueType valueType)
@@ -228,20 +235,20 @@ methodmap CPClientPartSlot < ArrayList {
 }
 
 methodmap CPClient < ArrayList {
-    public CPClient(int client, int maxSlotCount)
-    {
-        CPClient array = view_as<CPClient>(new ArrayList(4, view_as<int>(ClientValue_Last)));
+	public CPClient(int client, int maxSlotCount)
+	{
+		CPClient array = view_as<CPClient>(new ArrayList(4, view_as<int>(ClientValue_Last)));
 
-        for(int loop = 0; loop < view_as<int>(ClientValue_Last); loop++)
+		for(int loop = 0; loop < view_as<int>(ClientValue_Last); loop++)
 		{
 			array.Set(loop, 0);
 		}
 
-        array.Set(view_as<int>(Client_Index), client);
+		array.Set(view_as<int>(Client_Index), client);
 		array.Set(view_as<int>(Client_PartSlot), new CPClientPartSlot(maxSlotCount));
 
-        return array;
-    }
+		return array;
+	}
 
     public any GetValue(ClientValueType valueType)
 	{
