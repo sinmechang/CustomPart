@@ -43,7 +43,7 @@ enum PartInfo
 */
 enum PartValueType
 {
-	Part_Index,
+	Part_PartIndex,
 	Part_Flags,
 
 	PartValue_Last
@@ -88,7 +88,7 @@ methodmap CPPart < ArrayList {
 			array.Set(loop, 0);
 		}
 
-		array.Set(view_as<int>(Part_Index), partIndex);
+		array.Set(view_as<int>(Part_PartIndex), partIndex);
 		return array;
 	}
 
@@ -105,11 +105,11 @@ methodmap CPPart < ArrayList {
 	property int Index {
 		public get()
 		{
-			return this.GetValue(Part_Index);
+			return this.GetValue(Part_PartIndex);
 		}
 		public set(int partIndex)
 		{
-			return this.SetValue(Part_Index, partIndex);
+			return this.SetValue(Part_PartIndex, partIndex);
 		}
 	}
 
