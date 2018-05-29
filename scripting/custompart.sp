@@ -22,6 +22,9 @@ Core Plugin By Nopied◎
 #include <tf2_stocks>
 #include <custompart>
 
+// #include "custompart/stocks.sp"
+// #include "custompart/part_stocks.sp"
+
 #define PLUGIN_NAME "CustomPart Core"
 #define PLUGIN_AUTHOR "Nopied◎"
 #define PLUGIN_DESCRIPTION "Yup. Yup."
@@ -72,6 +75,8 @@ float PartCharge[MAXPLAYERS+1];
 float PartMaxChargeDamage[MAXPLAYERS+1];
 float PartCooldown[MAXPLAYERS+1];
 float PartGetCoolTime[MAXPLAYERS+1];
+
+CPClient g_hClientInfo[MAXPLAYERS+1];
 
 // TODO: 최적화
 PartRank PartPropRank[MAX_EDICTS+1];
@@ -227,6 +232,7 @@ public Action GivePart(int client, int args)
 
 public Action OnRoundStart(Handle event, const char[] name, bool dont)
 {
+
     /*
     int ent = -1;
 
@@ -331,6 +337,7 @@ public Action OnRoundEnd(Handle event, const char[] name, bool dont)
                 }
             }
         }
+        // TODO: g_hClientInfo 슬릇에 대하여.
     }
 }
 
@@ -595,6 +602,9 @@ public void OnMapStart()
 
         if(IsClientInGame(client))
             RefrashPartSlotArray(client);
+
+        if(g_hClientInfo[client] != null)
+            g_hClientInfo[client].KillSelf();
     }
 }
 
@@ -614,6 +624,7 @@ void ChangeChatCommand()
 
 public OnClientPostAdminCheck(int client)
 {
+    g_hClientInfo[client] = new CPClient(client, MaxPartGlobalSlot);
     MaxPartSlot[client] = MaxPartGlobalSlot;
 
     if(enabled)
@@ -654,6 +665,10 @@ public void OnClientDisconnect(int client)
     MaxPartSlot[client] = MaxPartGlobalSlot;
     ActivedPartSlotArray[client].Clear();
     ActivedDurationArray[client].Clear();
+
+    if(g_hClientInfo[client] != null)
+        g_hClientInfo[client].KillSelf();
+
     SDKUnhook(client, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
     // ActivedPartSlotArray[client] = view_as<ArrayList>(INVALID_HANDLE);
 }
