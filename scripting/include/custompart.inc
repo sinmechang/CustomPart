@@ -45,6 +45,8 @@ enum PartValueType
 {
 	Part_PartIndex,
 	Part_Flags,
+	Part_Duration,
+	Part_DurationMax,
 
 	PartValue_Last
 };
@@ -82,7 +84,6 @@ enum SlotValueType
 {
 	Slot_SlotIndex,
 	Slot_PartIndex,
-	Slot_Duration,
 
 	SlotValue_Last
 };
@@ -112,6 +113,13 @@ methodmap CPPart < ArrayList {
 		this.Set(view_as<int>(valueType), value);
 	}
 
+	public CPPart KillSelf()
+	{
+		delete this;
+
+		return null;
+	}
+
 	property int Index {
 		public get()
 		{
@@ -131,6 +139,28 @@ methodmap CPPart < ArrayList {
 		public set(int flags)
 		{
 			this.SetValue(Part_Flags, flags);
+		}
+	}
+
+	property float Duration {
+		public get()
+		{
+			return this.GetValue(Part_Duration) - GetGameTime();
+		}
+		public set(float time)
+		{
+			this.SetValue(Part_Duration, time + GetGameTime());
+		}
+	}
+
+	property float DurationMax {
+		public get()
+		{
+			return this.GetValue(Part_DurationMax);
+		}
+		public set(float time)
+		{
+			this.SetValue(Part_DurationMax, time);
 		}
 	}
 /*
@@ -258,14 +288,14 @@ methodmap CPClientPartSlot < ArrayList {
 	{
 		int beforeSize = this.Length - 1;
 		int afterSize = size - 1;
-		ArrayList array;
+		CPPart array;
 
 		if(size < beforeSize)
 		{
 			for(; beforeSize >= afterSize; beforeSize--)
 			{
 				array = this.Get(beforeSize);
-				delete array;
+				array.KillSelf();
 			}
 
 			this.Resize(size);
@@ -282,30 +312,18 @@ methodmap CPClientPartSlot < ArrayList {
 		}
 	}
 
-	public int GetPartIndex(int slot)
+	public CPPart GetPart(int slot)
 	{
-		ArrayList insideArray = this.Get(slot);
-
-		return insideArray.Get(view_as<int>(Slot_PartIndex));
+		return this.Get(slot);
 	}
 
-	public void SetPartIndex(int slot, int partIndex)
+	public void SetPart(int slot, CPPart part)
 	{
-		ArrayList insideArray = this.Get(slot);
-		insideArray.Set(view_as<int>(Slot_PartIndex), partIndex);
-	}
+		CPPart tempPart = this.Get(slot);
+		if(tempPart != null)
+			tempPart.KillSelf();
 
-	public float GetPartActiveDuration(int slot)
-	{
-		ArrayList insideArray = this.Get(slot);
-
-		return insideArray.Get(view_as<int>(Slot_Duration)) - GetGameTime();
-	}
-
-	public float SetPartActiveDuration(int slot, float duration)
-	{
-		ArrayList insideArray = this.Get(slot);
-		insideArray.Set(view_as<int>(Slot_Duration), duration + GetGameTime());
+		this.Set(slot, part);
 	}
 }
 
