@@ -1,6 +1,3 @@
-#define	MAX_EDICT_BITS	12
-#define	MAX_EDICTS		(1 << MAX_EDICT_BITS)
-
 void NoticePart(int client, int partIndex)
 {
     char partName[100];

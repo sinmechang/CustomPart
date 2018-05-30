@@ -22,16 +22,16 @@ Core Plugin By Nopied◎
 #include <tf2_stocks>
 #include <custompart>
 
-#include "custompart/stocks.sp"
 #include "custompart/global_var.sp"
+
+#include "custompart/stocks.sp"
+#include "custompart/menu.sp"
 // #include "custompart/part_stocks.sp"
 
 #define PLUGIN_NAME "CustomPart Core"
 #define PLUGIN_AUTHOR "Nopied◎"
 #define PLUGIN_DESCRIPTION "Yup. Yup."
 #define PLUGIN_VERSION "Dev"
-
-#define INVALID_PARTID -1
 
 public Plugin myinfo = {
   name=PLUGIN_NAME,

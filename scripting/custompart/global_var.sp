@@ -1,3 +1,8 @@
+#define	MAX_EDICT_BITS	12
+#define	MAX_EDICTS		(1 << MAX_EDICT_BITS)
+
+#define INVALID_PARTID -1
+
 Handle PartKV;
 Handle CPHud;
 Handle CPChargeHud;
@@ -39,7 +44,6 @@ PartRank PartPropRank[MAX_EDICTS+1];
 int PartPropCustomIndex[MAX_EDICTS+1];
 
 int AllPartPropCount;
-
 
 void CheckPartConfigFile()
 {
