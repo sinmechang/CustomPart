@@ -1,3 +1,14 @@
+#define	MAX_EDICT_BITS	12
+#define	MAX_EDICTS		(1 << MAX_EDICT_BITS)
+
+void NoticePart(int client, int partIndex)
+{
+    char partName[100];
+    GetPartString(partIndex, "name", partName, sizeof(partName));
+
+    CPrintToChatAll("{yellow}[CP]{default} {red}%N{default}님의 {limegreen}%s{default} 발동!", client, partName);
+}
+
 int CheckRoundState()
 {
 	switch(GameRules_GetRoundState())
