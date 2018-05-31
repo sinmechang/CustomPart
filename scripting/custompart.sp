@@ -994,20 +994,6 @@ void RefrashPartSlotArray(int client, bool holdParts=false, bool holdCooltime=fa
     }
 }
 
-
-bool IsValidPart(int partIndex)
-{
-    KvRewind(PartKV);
-
-    char temp[30];
-    Format(temp, sizeof(temp), "part%i", partIndex);
-
-    if(KvJumpToKey(PartKV, temp))
-        return true;
-
-    return false;
-}
-
 bool IsValidSlot(int client, int slot)
 {
     if(MaxPartSlot[client] > slot
@@ -1059,30 +1045,6 @@ void SetClientPartCooldown(int client, float cooldown)
 {
     PartCooldown[client] = cooldown;
 }
-
-
-float GetActivePartDuration(int partIndex)
-{
-    if(IsValidPart(partIndex))
-    {
-        return KvGetFloat(PartKV, "active_duration", 8.0);
-    }
-
-    return 0.0;
-}
-
-
-
-float GetActivePartCooldown(int partIndex)
-{
-    if(IsValidPart(partIndex))
-    {
-        return KvGetFloat(PartKV, "active_cooldown", 8.0);
-    }
-
-    return 0.0;
-}
-
 
 float GetClientActiveSlotDuration(int client, int slot)
 {
