@@ -1,3 +1,111 @@
+public Action GivePart(int client, int args)
+{
+    if(!enabled)
+    {
+        return Plugin_Continue;
+    }
+
+    if(args != 2)
+    {
+        CReplyToCommand(client, "{yellow}[CP]{default} Usage: !givepart <target> <points>");
+        return Plugin_Handled;
+    }
+
+    char num[25];
+    int part;
+    char pattern[PLATFORM_MAX_PATH];
+    GetCmdArg(1, pattern, sizeof(pattern));
+    GetCmdArg(2, num, sizeof(num));
+    part = StringToInt(num);
+
+    char targetName[MAX_TARGET_LENGTH];
+    int targets[MAXPLAYERS], matches;
+    bool targetNounIsMultiLanguage;
+
+    if((matches=ProcessTargetString(pattern, client, targets, sizeof(targets), 0, targetName, sizeof(targetName), targetNounIsMultiLanguage))<=0)
+    {
+        ReplyToTargetError(client, matches);
+        return Plugin_Handled;
+    }
+
+    if(!IsValidPart(part)) return Plugin_Handled;
+
+    if(matches>1)
+    {
+        for(int target; target<matches; target++)
+        {
+            if(!IsClientSourceTV(targets[target]) && !IsClientReplay(targets[target]))
+            {
+                int slot = FindActiveSlot(targets[target]);
+                if(IsValidSlot(targets[target], slot))
+                {
+                    SetClientPart(targets[target], slot, part);
+                    PartMaxChargeDamage[targets[target]] += GetPartMaxChargeDamage(part);
+                    Forward_OnGetPart_Post(targets[target], part);
+                    CPrintToChatAll("{yellow}[CP]{default} %N님이 %N에게 %i가 추가됨.", client, targets[target], part);
+                }
+            }
+        }
+    }
+    else
+    {
+        int slot = FindActiveSlot(targets[0]);
+        if(IsValidSlot(targets[0], slot))
+        {
+            SetClientPart(targets[0], slot, part);
+            PartMaxChargeDamage[targets[0]] += GetPartMaxChargeDamage(part);
+            Forward_OnGetPart_Post(targets[0], part);
+            CPrintToChatAll("{yellow}[CP]{default} %N님이 %N에게 %i가 추가됨.", client, targets[0], part);
+        }
+    }
+    return Plugin_Handled;
+}
+
+public Action Listener_Say(int client, const char[] command, int argc)
+{
+    if(!IsValidClient(client)) return Plugin_Continue;
+
+    char strChat[100];
+    char temp[3][64];
+    GetCmdArgString(strChat, sizeof(strChat));
+
+    int start;
+
+    if(strChat[start] == '"') start++;
+    if(strChat[start] == '!' || strChat[start] == '/') start++;
+    strChat[strlen(strChat)-1] = '\0';
+    ExplodeString(strChat[start], " ", temp, 3, 64, true);
+
+    for (int i=0; i<=g_iChatCommand; i++)
+    {
+        if(StrEqual(temp[0], g_strChatCommand[i], true))
+        {
+            if(temp[1][0] != '\0')
+            {
+                return Plugin_Continue;
+            }
+
+            ViewSlotPart(client);
+            return Plugin_Handled;
+        }
+    }
+
+    if(StrEqual(temp[0], "파츠도감", true)
+    || StrEqual(temp[0], "partbook", true)
+    || StrEqual(temp[0], "partinfo", true))
+    {
+        if(temp[1][0] != '\0')
+        {
+            return Plugin_Continue;
+        }
+
+        ViewPartBook(client);
+        return Plugin_Handled;
+    }
+
+    return Plugin_Continue;
+}
+
 void ViewPartBook(int client)
 {
     Menu menu = new Menu(OnSelectedBook);
