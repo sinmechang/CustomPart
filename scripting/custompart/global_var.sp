@@ -45,6 +45,26 @@ int PartPropCustomIndex[MAX_EDICTS+1];
 
 int AllPartPropCount;
 
+methodmap CPConfigKeyValues < KeyValues {
+	public CPConfigKeyValues()
+    {
+        CPConfigKeyValues kv = view_as<CPConfigKeyValues>(new KeyValues("custompart"));
+
+        char config[PLATFORM_MAX_PATH];
+        BuildPath(Path_SM, config, sizeof(config), "configs/custompart.cfg");
+
+        if(!kv.ImportFromFile(config))
+        {
+            SetFailState("[CP] configs/custompart.cfg is broken?!");
+            return null;
+        }
+
+        kv.Rewind();
+
+        return kv;
+    }
+}
+
 void CheckPartConfigFile()
 {
   if(PartKV != INVALID_HANDLE)
