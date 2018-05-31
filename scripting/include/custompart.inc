@@ -47,6 +47,7 @@ enum PartValueType
 	Part_Flags,
 	Part_Duration,
 	Part_DurationMax,
+	Part_Active,
 
 	PartValue_Last
 };
@@ -161,6 +162,17 @@ methodmap CPPart < ArrayList {
 		public set(float time)
 		{
 			this.SetValue(Part_DurationMax, time);
+		}
+	}
+
+	property bool Active {
+		public get()
+		{
+			return this.GetValue(Part_Active);
+		}
+		public set(bool enable)
+		{
+			this.SetValue(Part_Active, enable);
 		}
 	}
 /*
