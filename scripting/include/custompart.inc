@@ -45,6 +45,7 @@ enum PartValueType
 {
 	Part_PartIndex,
 	Part_Flags,
+	Part_Name,
 	Part_Duration,
 	Part_DurationMax,
 	Part_Active,
@@ -93,7 +94,7 @@ enum SlotValueType
 methodmap CPPart < ArrayList {
 	public CPPart(int partIndex)
 	{
-		CPPart array = view_as<CPPart>(new ArrayList(4, PartValue_Last));
+		CPPart array = view_as<CPPart>(new ArrayList(64, PartValue_Last));
 
 		for(int loop = 0; loop < view_as<int>(PartValue_Last); loop++)
 		{
@@ -101,6 +102,7 @@ methodmap CPPart < ArrayList {
 		}
 
 		array.Set(view_as<int>(Part_PartIndex), partIndex);
+		array.SetString(view_as<int>(Part_Name), "");
 		return array;
 	}
 
@@ -174,6 +176,16 @@ methodmap CPPart < ArrayList {
 		{
 			this.SetValue(Part_Active, enable);
 		}
+	}
+
+	public void GetName(char[] name, int len)
+	{
+		this.GetString(view_as<int>(Part_Name), name, len);
+	}
+
+	public void SetName(const char[] source)
+	{
+		this.SetString(view_as<int>(Part_Name), source);
 	}
 /*
 	public Action TriggerOnGet(int client, CPPartProp partprop = null)
