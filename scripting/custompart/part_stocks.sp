@@ -10,6 +10,24 @@ bool IsValidPart(int partIndex)
 
     return false;
 }
+
+CPPart LoadPart(int partIndex)
+{
+    if(IsValidPart(partIndex))
+    {
+        CPPart tempPart = new CPPart(partIndex);
+        if(IsPartActive(partIndex))
+        {
+            tempPart.Active = true;
+            tempPart.DurationMax = GetActivePartDuration(partIndex);
+        }
+
+        return tempPart;
+    }
+
+    return null;
+}
+
 int GetValidPartCount(PartRank rank = Rank_None)
 {
     int count;
