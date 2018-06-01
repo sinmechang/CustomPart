@@ -63,6 +63,27 @@ methodmap CPConfigKeyValues < KeyValues {
 
         return kv;
     }
+
+	public bool ImportPartConfig(CPConfigKeyValues temp)
+	{
+		kv.Rewind();
+		temp.Import(this);
+	}
+
+    public int GetPartSymbol(int partIndex)
+    {
+        char temp[30];
+        int id = -1;
+        Format(temp, sizeof(temp), "part%i", partIndex);
+
+		if(this.GetNameSymbol(temp, id))
+		{
+			return id;
+		}
+
+        return -1;
+    }
+
 }
 
 void CheckPartConfigFile()
