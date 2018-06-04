@@ -266,84 +266,83 @@ methodmap CPConfigKeyValues < KeyValues {
 
 void CheckPartConfigFile()
 {
-  if(PartKV != INVALID_HANDLE)
-  {
-    CloseHandle(PartKV);
-    PartKV = INVALID_HANDLE;
-  }
+	if(PartKV != INVALID_HANDLE)
+	{
+		CloseHandle(PartKV);
+		PartKV = INVALID_HANDLE;
+	}
 
-  char config[PLATFORM_MAX_PATH];
-  BuildPath(Path_SM, config, sizeof(config), "configs/custompart.cfg");
-  enabled = false;
+	char config[PLATFORM_MAX_PATH];
+	BuildPath(Path_SM, config, sizeof(config), "configs/custompart.cfg");
+	enabled = false;
 
-  if(!FileExists(config))
-  {
-      SetFailState("[CP] NO CFG FILE! (configs/custompart.cfg)");
-      return;
-  }
+	if(!FileExists(config))
+	{
+		SetFailState("[CP] NO CFG FILE! (configs/custompart.cfg)");
+		return;
+	}
 
-  PartKV = CreateKeyValues("CustomPart");
+	PartKV = CreateKeyValues("CustomPart");
 
-  if(!FileToKeyValues(PartKV, config))
-  {
-    SetFailState("[CP] configs/custompart.cfg is broken?!");
-  }
+	if(!FileToKeyValues(PartKV, config))
+	{
+		SetFailState("[CP] configs/custompart.cfg is broken?!");
+	}
 
-  // MaxEnablePartCount = 0;
-  KvRewind(PartKV);
-  if(KvJumpToKey(PartKV, "setting"))
-  {
-      MaxPartGlobalSlot = KvGetNum(PartKV, "able_slot", 1);
+	// MaxEnablePartCount = 0;
+	KvRewind(PartKV);
+	if(KvJumpToKey(PartKV, "setting"))
+	{
+		MaxPartGlobalSlot = KvGetNum(PartKV, "able_slot", 1);
 
-      char key[PLATFORM_MAX_PATH];
-      char path[PLATFORM_MAX_PATH];
-      // char downloadPath[PLATFORM_MAX_PATH];
-      char modelExtensions[][]={".mdl", ".dx80.vtx", ".dx90.vtx", ".sw.vtx", ".vvd"};
-      char matExtensions[][]={".vmt", ".vtf"};
-      char rankExtensions[][]={"base", "normal", "rare", "hero", "legend", "another"};
-      // char modelMat[][]={"model", "mat"};
+		char key[PLATFORM_MAX_PATH];
+		char path[PLATFORM_MAX_PATH];
+		// char downloadPath[PLATFORM_MAX_PATH];
+		char modelExtensions[][]={".mdl", ".dx80.vtx", ".dx90.vtx", ".sw.vtx", ".vvd"};
+		char matExtensions[][]={".vmt", ".vtf"};
+		char rankExtensions[][]={"base", "normal", "rare", "hero", "legend", "another"};
+		// char modelMat[][]={"model", "mat"};
 
-      for(int count=0; count < sizeof(rankExtensions); count++)
-      {
-          Format(key, sizeof(key), "part_%s_model", rankExtensions[count]);
+		for(int count=0; count < sizeof(rankExtensions); count++)
+		{
+			Format(key, sizeof(key), "part_%s_model", rankExtensions[count]);
 
-          for(int i=0; i<sizeof(modelExtensions); i++)
-          {
-              KvGetString(PartKV, key, path, sizeof(path));
-              Format(path, sizeof(path), "%s%s", path, modelExtensions[i]);
-              if(FileExists(path, true))
-              {
-                  AddFileToDownloadsTable(path);
-                  PrecacheModel(path);
-              }
-          }
+			for(int i=0; i<sizeof(modelExtensions); i++)
+			{
+				KvGetString(PartKV, key, path, sizeof(path));
+				Format(path, sizeof(path), "%s%s", path, modelExtensions[i]);
+				if(FileExists(path, true))
+				{
+					AddFileToDownloadsTable(path);
+					PrecacheModel(path);
+				}
+			}
 
-          Format(key, sizeof(key), "part_%s_mat", rankExtensions[count]);
+			Format(key, sizeof(key), "part_%s_mat", rankExtensions[count]);
 
-          for(int i = 0; i < sizeof(matExtensions); i++)
-          {
-              KvGetString(PartKV, key, path, sizeof(path));
-              Format(path, sizeof(path), "%s%s", path, matExtensions[i]);
-              if(FileExists(path, true))
-              {
-                  AddFileToDownloadsTable(path);
-              }
-          }
+			for(int i = 0; i < sizeof(matExtensions); i++)
+			{
+				KvGetString(PartKV, key, path, sizeof(path));
+				Format(path, sizeof(path), "%s%s", path, matExtensions[i]);
+				if(FileExists(path, true))
+				{
+					AddFileToDownloadsTable(path);
+				}
+			}
+		}
+		enabled = true;
+	}
 
-      }
-      enabled = true;
-  }
-
-  if(enabled)
-  {
-      for(int client = 1; client <= MaxClients; client++)
-      {
-          if(IsClientInGame(client) && ActivedPartSlotArray[client] == INVALID_HANDLE)
-          {
-              RefrashPartSlotArray(client);
-          }
-      }
-  }
+	if(enabled)
+	{
+		for(int client = 1; client <= MaxClients; client++)
+		{
+			if(IsClientInGame(client) && ActivedPartSlotArray[client] == INVALID_HANDLE)
+			{
+				RefrashPartSlotArray(client);
+			}
+		}
+	}
 }
 
 public void GetPartModelString(PartRank partRank, char[] model, int bufferLength)
