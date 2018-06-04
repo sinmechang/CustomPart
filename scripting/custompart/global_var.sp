@@ -95,16 +95,22 @@ methodmap CPConfigKeyValues < KeyValues {
 		if(this.JumpToKeySymbol(this.GetPartSymbol(partIndex)))
 		{
 			CPPart tempPart = new CPPart(partIndex);
-			if(IsPartActive(partIndex))
+			if(this.IsPartActive(partIndex))
 			{
 				tempPart.Active = true;
 				tempPart.DurationMax = GetActivePartDuration(partIndex);
 			}
 
+			this.Rewind();
 			return tempPart;
 		}
 
 		return null;
+	}
+
+	public bool IsValidPart(const int partIndex)
+	{
+		return this.GetPartSymbol(partIndex) > -1;
 	}
 
 	public bool CanUsePartClass(const int partIndex, const TFClassType class)
@@ -121,7 +127,7 @@ methodmap CPConfigKeyValues < KeyValues {
 		if(classes[0] == '\0')
 			return true;
 
-		else if(!StrContains(classes, classnames[view_as<int>(class)], false))
+		else if(StrContains(classes, classnames[view_as<int>(class)]) > -1)
 			return true;
 
 		return false;
@@ -139,17 +145,18 @@ methodmap CPConfigKeyValues < KeyValues {
 			do
 			{
 				this.GetSectionName(indexKey, sizeof(indexKey));
-				if(!StrContains(indexKey, "part"))
+
+				if(StrContains(indexKey, "part") > -1 && this.JumpToKey(indexKey))
 				{
 					ReplaceString(indexKey, sizeof(indexKey), "part", "");
-					if(this.JumpToKeySymbol(this.GetPartSymbol((part = StringToInt(indexKey)))))
-					{
-						if(part <= 0) continue;
+					part = StringToInt(indexKey);
 
-						if(rank == Rank_None || this.GetNum("rank") == integerRank)
-							count++;
-					}
+					if(part <= 0) continue;
+
+					if(rank == Rank_None || this.GetNum("rank") == integerRank)
+						count++;
 				}
+
 			}
 			while(this.GotoNextKey());
 		}
@@ -170,16 +177,16 @@ methodmap CPConfigKeyValues < KeyValues {
 			do
 			{
 				this.GetSectionName(indexKey, sizeof(indexKey));
-				if(!StrContains(indexKey, "part"))
+				if(StrContains(indexKey, "part") > -1 && this.JumpToKey(indexKey))
 				{
 					ReplaceString(indexKey, sizeof(indexKey), "part", "");
-					if(this.JumpToKeySymbol(this.GetPartSymbol((part = StringToInt(indexKey)))))
-					{
-						if(part <= 0) continue;
+					part = StringToInt(indexKey);
 
-						if(rank == Rank_None || this.GetNum("rank") == integerRank)
-							parts[count++] = part;
-					}
+					if(part <= 0) continue;
+
+					if(rank == Rank_None || this.GetNum("rank") == integerRank)
+						parts[count++] = part;
+
 				}
 			}
 			while(this.GotoNextKey() && count < size);
@@ -202,24 +209,24 @@ methodmap CPConfigKeyValues < KeyValues {
 			do
 			{
 				this.GetSectionName(indexKey, sizeof(indexKey));
-				if(!StrContains(indexKey, "part"))
+				if(StrContains(indexKey, "part") > -1 && this.JumpToKey(indexKey))
 				{
 					ReplaceString(indexKey, sizeof(indexKey), "part", "");
-					if(this.JumpToKeySymbol(this.GetPartSymbol((part = StringToInt(indexKey)))))
+					part = StringToInt(indexKey);
+
+					if(part <= 0) continue;
+
+					if(this.GetPartRank(part) == rank && this.IsCanUseWeaponPart(client, part)
+					&& this.GetNum("not_able_in_random", 0) <= 0
+					) // TODO: 타 게임 지원
 					{
-						if(part <= 0) continue;
+					if(gameEngine == Engine_TF2 && !this.CanUsePartClass(part, class))
+						continue;
 
-						if(GetPartRank(part) == rank && IsCanUseWeaponPart(client, part)
-						&& this.GetNum("not_able_in_random", 0) <= 0
-						) // TODO: 타 게임 지원
-						{
-						if(gameEngine == Engine_TF2 && !this.CanUsePartClass(part, class))
-							continue;
-
-							count++;
-							parts.Push(part);
-						}
+						count++;
+						parts.Push(part);
 					}
+
 				}
 			}
 			while(this.GotoNextKey());
