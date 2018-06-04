@@ -182,7 +182,7 @@ public Action OnRoundEnd(Handle event, const char[] name, bool dont)
             {
                 temp = ActivedPartSlotArray[client].Get(target);
 
-                if(!IsValidPart(temp)) continue;
+                if(!PartKV.IsValidPart(temp)) continue;
 
                 tempPart = temp;
                 tempGoToNextRound = false;
@@ -264,7 +264,7 @@ public Action ClientTimer(Handle timer)
                     duration -= 0.1;
                     tempDuration = duration;
 
-                    if(IsValidPart(part))
+                    if(PartKV.IsValidPart(part))
                     {
                         action = Forward_OnActivedPartTime(client, part, tempDuration);
                         if(action == Plugin_Changed)
@@ -329,7 +329,7 @@ public Action ClientTimer(Handle timer)
                 int partcount = 0;
                 for(int count = 0; count < MaxPartSlot[target]; count++)
                 {
-                    if(IsValidSlot(target, count) && IsValidPart((part = GetClientPart(target, count))))
+                    if(IsValidSlot(target, count) && PartKV.IsValidPart((part = GetClientPart(target, count))))
                     {
                         if(IsPartActive(part))
                             hasActivePart = true;
@@ -363,7 +363,7 @@ public Action ClientTimer(Handle timer)
 
                         for(int count=0; count<MaxPartSlot[target]; count++)
                         {
-                            if(GetClientActiveSlotDuration(target, count) > 0.0 && IsValidPart((part = GetClientPart(target, count))))
+                            if(GetClientActiveSlotDuration(target, count) > 0.0 && PartKV.IsValidPart((part = GetClientPart(target, count))))
                             {
                                 GetPartString(part, "name", partName, sizeof(partName));
                                 if(activeCount == 0)
@@ -541,7 +541,7 @@ public void OnClientDisconnect(int client)
             temp = ActivedPartSlotArray[client].Get(target);
             tempPart = temp;
 
-            if(!IsValidPart(tempPart)) continue;
+            if(!PartKV.IsValidPart(tempPart)) continue;
 
             action = Forward_OnSlotClear(tempClient, tempPart, false);
 
@@ -588,7 +588,7 @@ public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
             {
                 temp = ActivedPartSlotArray[client].Get(target);
 
-                if(!IsValidPart(temp)) continue;
+                if(!PartKV.IsValidPart(temp)) continue;
 
                 tempPart = temp;
                 tempGoToNextRound = false;
@@ -784,7 +784,7 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
         if(IsCorrectTeam(client))
         {
             part = GetPartPropInfo(entity, Info_CustomIndex);
-            if(!IsValidPart(part))
+            if(!PartKV.IsValidPart(part))
                 part = RandomPart(client, rank);
 
             slot = FindActiveSlot(client);
@@ -898,7 +898,7 @@ int FindActiveSlot(int client)
     {
         int value = ActivedPartSlotArray[client].Get(i);
         // Debug("[%i] %d", i, value);
-        if(value <= 0 || !IsValidPart(value))
+        if(value <= 0 || !PartKV.IsValidPart(value))
             return i;
     }
     return -1;
@@ -922,7 +922,7 @@ void SetClientPart(int client, int slot, int value) // return: 적용된 슬릇 
 
     ActivedPartSlotArray[client].Set(slot, value);
 
-    if(IsValidPart(part))
+    if(PartKV.IsValidPart(part))
         Forward_OnActivedPartEnd(client, part);
 }
 
@@ -960,7 +960,7 @@ void RefrashPartSlotArray(int client, bool holdParts=false, bool holdCooltime=fa
                 part = beforeCell[count];
                 cooltime = beforeCooltime[count];
 
-                if(IsValidPart(part))
+                if(PartKV.IsValidPart(part))
                 {
                     ActivedPartSlotArray[client].Set(count, part);
 
@@ -985,7 +985,7 @@ void RefrashPartSlotArray(int client, bool holdParts=false, bool holdCooltime=fa
         {
             part = beforeCell[count];
 
-            if(IsValidPart(part))
+            if(PartKV.IsValidPart(part))
             {
                 Forward_OnSlotClear(client, part, false);
             }
@@ -1026,7 +1026,7 @@ float GetClientTotalCooldown(int client)
     {
         part = GetClientPart(client, count);
 
-        if(IsValidSlot(client, count) && IsValidPart(part))
+        if(IsValidSlot(client, count) && PartKV.IsValidPart(part))
         {
             totalCooldown += GetActivePartDuration(part);
         }
@@ -1107,7 +1107,7 @@ public Native_RefrashPartSlotArray(Handle plugin, int numParams)
 
 public Native_IsValidPart(Handle plugin, int numParams)
 {
-    return IsValidPart(GetNativeCell(1));
+    return PartKV.IsValidPart(GetNativeCell(1));
 }
 
 public Native_IsValidSlot(Handle plugin, int numParams)

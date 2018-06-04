@@ -28,7 +28,7 @@ public Action GivePart(int client, int args)
         return Plugin_Handled;
     }
 
-    if(!IsValidPart(part)) return Plugin_Handled;
+    if(!PartKV.IsValidPart(part)) return Plugin_Handled;
 
     if(matches>1)
     {
@@ -224,7 +224,7 @@ public int OnSelectedBookItem(Menu menu, MenuAction action, int client, int item
 
 void ViewPart(int client, int partIndex)
 {
-    if(IsValidPart(partIndex))
+    if(PartKV.IsValidPart(partIndex))
     {
         char item[300];
         char tempItem[200];
@@ -251,7 +251,7 @@ void ViewSlotPart(int client, int slot=0)
     {
         int part;
 
-        if(!IsValidPart((part = GetClientPart(client, slot))))
+        if(!PartKV.IsValidPart((part = GetClientPart(client, slot))))
             part = INVALID_PARTID;
 
         char item[500];
