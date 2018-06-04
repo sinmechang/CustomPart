@@ -3,7 +3,7 @@
 
 #define INVALID_PARTID -1
 
-Handle PartKV;
+CPConfigKeyValues PartKV;
 Handle CPHud;
 Handle CPChargeHud;
 Handle cvarChatCommand;
