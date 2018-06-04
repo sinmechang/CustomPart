@@ -64,7 +64,7 @@ methodmap CPConfigKeyValues < KeyValues {
         return kv;
     }
 
-	public int GetPartSymbol(int partIndex)
+	public int GetPartSymbol(const int partIndex)
 	{
 		char temp[30];
 		int id = -1;
@@ -76,7 +76,7 @@ methodmap CPConfigKeyValues < KeyValues {
 		return -1;
 	}
 
-	public bool ImportPartConfig(CPConfigKeyValues victimKv, int partIndex)
+	public bool ImportPartConfig(CPConfigKeyValues victimKv, const int partIndex)
 	{
 		int preSpot;
 		bool result;
@@ -90,7 +90,7 @@ methodmap CPConfigKeyValues < KeyValues {
 		return result;
 	}
 
-	public CPPart LoadPart(int partIndex)
+	public CPPart LoadPart(const int partIndex)
 	{
 		if(this.JumpToKeySymbol(this.GetPartSymbol(partIndex)))
 		{
