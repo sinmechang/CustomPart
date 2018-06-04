@@ -64,26 +64,204 @@ methodmap CPConfigKeyValues < KeyValues {
         return kv;
     }
 
-	public bool ImportPartConfig(CPConfigKeyValues temp)
+	public int GetPartSymbol(int partIndex)
 	{
-		kv.Rewind();
-		temp.Import(this);
-	}
-
-    public int GetPartSymbol(int partIndex)
-    {
-        char temp[30];
-        int id = -1;
-        Format(temp, sizeof(temp), "part%i", partIndex);
+		char temp[30];
+		int id = -1;
+		Format(temp, sizeof(temp), "part%i", partIndex);
 
 		if(this.GetNameSymbol(temp, id))
-		{
 			return id;
+
+		return -1;
+	}
+
+	public bool ImportPartConfig(CPConfigKeyValues victimKv, int partIndex)
+	{
+		int preSpot;
+		bool result;
+		this.GetSectionSymbol(preSpot);
+
+		if((result = this.JumpToKeySymbol(this.GetPartSymbol(partIndex))))
+			victimKv.Import(this);
+
+		this.JumpToKeySymbol(preSpot);
+
+		return result;
+	}
+
+	public CPPart LoadPart(int partIndex)
+	{
+		if(this.JumpToKeySymbol(this.GetPartSymbol(partIndex)))
+		{
+			CPPart tempPart = new CPPart(partIndex);
+			if(IsPartActive(partIndex))
+			{
+				tempPart.Active = true;
+				tempPart.DurationMax = GetActivePartDuration(partIndex);
+			}
+
+			return tempPart;
 		}
 
-        return -1;
-    }
+		return null;
+	}
 
+	public bool CanUsePartClass(const int partIndex, const TFClassType class)
+	{
+		static const char classnames[][] = {"", "scout", "sniper", "soldier", "demoman", "medic", "heavy", "pyro", "spy", "engineer"};
+		char classes[80];
+		CPConfigKeyValues kv = view_as<CPConfigKeyValues>(new KeyValues("custompart"));
+
+		if(this.ImportPartConfig(kv, partIndex))
+		{
+			kv.GetString("able_to_class", classes, sizeof(classes));
+			delete kv;
+
+			if(classes[0] == '\0')
+				return true;
+
+			else if(!StrContains(classes, classnames[view_as<int>(class)], false))
+				return true;
+		}
+		return false;
+	}
+
+	public int GetValidPartCount(PartRank rank = Rank_None)
+	{
+		int count;
+		int part;
+		int integerRank = view_as<int>(rank);
+		char indexKey[20];
+
+		if(this.GotoFirstSubKey())
+		{
+			do
+			{
+				this.GetSectionName(indexKey, sizeof(indexKey));
+				if(!StrContains(indexKey, "part"))
+				{
+					ReplaceString(indexKey, sizeof(indexKey), "part", "");
+					if(this.JumpToKeySymbol(this.GetPartSymbol((part = StringToInt(indexKey)))))
+					{
+						if(part <= 0) continue;
+
+						if(rank == Rank_None || this.GetNum("rank") == integerRank)
+							count++;
+					}
+				}
+			}
+			while(this.GotoNextKey());
+		}
+		this.Rewind();
+
+		return count;
+	}
+
+	public void GetValidPartArray(PartRank rank, int[] parts, int size)
+	{
+		int count;
+		int part;
+		int integerRank = view_as<int>(rank);
+		char indexKey[20];
+
+		if(this.GotoFirstSubKey())
+		{
+			do
+			{
+				this.GetSectionName(indexKey, sizeof(indexKey));
+				if(!StrContains(indexKey, "part"))
+				{
+					ReplaceString(indexKey, sizeof(indexKey), "part", "");
+					if(this.JumpToKeySymbol(this.GetPartSymbol((part = StringToInt(indexKey)))))
+					{
+						if(part <= 0) continue;
+
+						if(rank == Rank_None || this.GetNum("rank") == integerRank)
+							parts[count++] = part;
+					}
+				}
+			}
+			while(this.GotoNextKey() && count < size);
+		}
+		this.Rewind();
+	}
+
+	public int RandomPart(int client, PartRank rank)
+	{
+		ArrayList parts = new ArrayList();
+		int count = 0;
+		int part;
+
+		char indexKey[20];
+		TFClassType class = TF2_GetPlayerClass(client);
+		EngineVersion gameEngine = GetEngineVersion();
+
+		if(this.GotoFirstSubKey())
+		{
+			do
+			{
+				this.GetSectionName(indexKey, sizeof(indexKey));
+				if(!StrContains(indexKey, "part"))
+				{
+					ReplaceString(indexKey, sizeof(indexKey), "part", "");
+					if(this.JumpToKeySymbol(this.GetPartSymbol((part = StringToInt(indexKey)))))
+					{
+						if(part <= 0) continue;
+
+						if(GetPartRank(part) == rank && IsCanUseWeaponPart(client, part)
+						&& this.GetNum("not_able_in_random", 0) <= 0
+						) // TODO: 타 게임 지원
+						{
+						if(gameEngine == Engine_TF2 && !this.CanUsePartClass(part, class))
+							continue;
+
+							count++;
+							parts.Push(part);
+						}
+					}
+				}
+			}
+			while(this.GotoNextKey());
+		}
+
+		this.Rewind();
+
+		SetRandomSeed(GetTime());
+		int answer;
+
+		if(count <= 0)
+		{
+			parts.Close();
+
+			int integerRank = view_as<int>(rank);
+			if(--integerRank < 0)
+				return 0;
+
+			// answer = this.RandomPart(client, view_as<PartRank>(integerRank)); // TODO; 등급 개편
+		}
+		else
+		{
+			answer = parts.Get(GetRandomInt(0, count-1));
+		}
+		parts.Close();
+
+		return answer;
+	}
+
+	public bool IsPartActive(const int partIndex)
+	{
+		int num;
+		CPConfigKeyValues kv = view_as<CPConfigKeyValues>(new KeyValues("custompart"));
+
+		if(this.ImportPartConfig(kv, partIndex))
+		{
+			num = kv.GetNum("active_part", 0) > 0;
+			delete kv;
+		}
+
+		return num > 0;
+	}
 }
 
 void CheckPartConfigFile()

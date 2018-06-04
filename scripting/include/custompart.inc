@@ -178,7 +178,7 @@ methodmap CPPart < ArrayList {
 		}
 	}
 
-	public void GetName(char[] name, int len)
+	public void GetName(char[] name, const int len)
 	{
 		this.GetString(view_as<int>(Part_Name), name, len);
 	}
@@ -472,6 +472,16 @@ methodmap CPClient < ArrayList {
 		{
 			return this.GetValue(Client_PartSlot);
 		}
+	}
+
+	public bool IsValidSlot(int client, int slot)
+	{
+		if(this.MaxSlotCount > slot
+			&& ((this.PartSlot != null) && (this.PartSlot).Length > slot)
+			&& slot >= 0)
+			return true;
+
+		return false;
 	}
 }
 
