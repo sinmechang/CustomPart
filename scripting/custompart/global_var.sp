@@ -114,20 +114,20 @@ methodmap CPConfigKeyValues < KeyValues {
 		CPConfigKeyValues kv = view_as<CPConfigKeyValues>(new KeyValues("custompart"));
 
 		if(this.ImportPartConfig(kv, partIndex))
-		{
 			kv.GetString("able_to_class", classes, sizeof(classes));
-			delete kv;
 
-			if(classes[0] == '\0')
-				return true;
+		delete kv;
 
-			else if(!StrContains(classes, classnames[view_as<int>(class)], false))
-				return true;
-		}
+		if(classes[0] == '\0')
+			return true;
+
+		else if(!StrContains(classes, classnames[view_as<int>(class)], false))
+			return true;
+
 		return false;
 	}
 
-	public int GetValidPartCount(PartRank rank = Rank_None)
+	public int GetValidPartCount(const PartRank rank = Rank_None)
 	{
 		int count;
 		int part;
@@ -158,7 +158,7 @@ methodmap CPConfigKeyValues < KeyValues {
 		return count;
 	}
 
-	public void GetValidPartArray(PartRank rank, int[] parts, int size)
+	public void GetValidPartArray(const PartRank rank, const int[] parts, const int size)
 	{
 		int count;
 		int part;
@@ -187,7 +187,7 @@ methodmap CPConfigKeyValues < KeyValues {
 		this.Rewind();
 	}
 
-	public int RandomPart(int client, PartRank rank)
+	public int RandomPart(const int client, const PartRank rank)
 	{
 		ArrayList parts = new ArrayList();
 		int count = 0;
@@ -255,12 +255,132 @@ methodmap CPConfigKeyValues < KeyValues {
 		CPConfigKeyValues kv = view_as<CPConfigKeyValues>(new KeyValues("custompart"));
 
 		if(this.ImportPartConfig(kv, partIndex))
-		{
 			num = kv.GetNum("active_part", 0) > 0;
-			delete kv;
-		}
 
+		delete kv;
 		return num > 0;
+	}
+
+	public PartRank GetPartRank(const int partIndex)
+	{
+		CPConfigKeyValues kv = view_as<CPConfigKeyValues>(new KeyValues("custompart"));
+		int rank = view_as<int>(Rank_Normal);
+
+		if(this.ImportPartConfig(kv, partIndex))
+	        rank = kv.GetNum("rank", 0);
+
+		delete kv;
+	    return view_as<PartRank>(rank);
+	}
+
+	public float GetActivePartDuration(const int partIndex)
+	{
+		CPConfigKeyValues kv = view_as<CPConfigKeyValues>(new KeyValues("custompart"));
+		float duration = 0.0;
+
+		if(this.ImportPartConfig(kv, partIndex))
+	        duration = kv.GetFloat("active_duration", 8.0);
+
+		delete kv;
+	    return duration;
+	}
+
+	public float GetActivePartCooldown(const int partIndex)
+	{
+		CPConfigKeyValues kv = view_as<CPConfigKeyValues>(new KeyValues("custompart"));
+		float cooldown = 0.0;
+
+		if(this.ImportPartConfig(kv, partIndex))
+	        cooldown = kv.GetFloat("active_cooldown", 8.0);
+
+	    delete kv;
+	    return cooldown;
+	}
+
+	public float GetPartMaxChargeDamage(const int partIndex)
+	{
+		CPConfigKeyValues kv = view_as<CPConfigKeyValues>(new KeyValues("custompart"));
+		float maxChargeDamage = 0.0;
+
+		if(this.ImportPartConfig(kv, partIndex))
+	        maxChargeDamage = KvGetFloat(PartKV, "active_max_charge", 100.0);
+
+		delete kv;
+	    return maxChargeDamage;
+	}
+
+	public bool IsCanUseWeaponPart(const int client, const int partIndex)
+	{
+	    int index, count, value;
+	   	char key[20];
+
+		CPConfigKeyValues kv = view_as<CPConfigKeyValues>(new KeyValues("custompart"));
+		if(!this.ImportPartConfig(kv, partIndex))
+			return false;
+
+	    for(int slot = 0; slot < 5; slot++)
+	    {
+	        count = 0;
+
+	        if(IsValidEntity(weapon))
+	        {
+	            index = GetEntProp(GetPlayerWeaponSlot(client, slot), Prop_Send, "m_iItemDefinitionIndex");
+	            do
+	            {
+	                Format(key, sizeof(key), "only_allow_weapon%i", ++count);
+	                value = KvGetNum(PartKV, key, 0);
+
+	                if(value == index)
+	                    return true;
+
+	                else if(count <= 1 && value <= 0)
+	                    return true;
+
+	                else if(value <= 0)
+	                    break;
+	            }
+	            while(1 == 1);
+	        }
+	    }
+
+	    return false;
+	}
+
+	public void GetPartString(const int partIndex, const char[] key, char[] values, const int bufferLength, const int client = 0)
+	{
+		CPConfigKeyValues kv = view_as<CPConfigKeyValues>(new KeyValues("custompart"));
+		bool validClient = (client > 0 && IsClientInGame(client));
+
+		if(!this.ImportPartConfig(kv, partIndex))
+	    {
+			if(validClient)
+				SetGlobalTransTarget(client);
+
+	        Format(values, bufferLength, "%t", "cp_empty");
+
+			SetGlobalTransTarget(LANG_SERVER);
+	    }
+	    else
+	    {
+			char langId[4];
+
+			if(validClient)
+			    GetLanguageInfo(GetClientLanguage(client), langId, sizeof(langId));
+			else
+			    Format(langId, sizeof(langId), "en");
+
+			if(!StrEqual(langId, "en"))
+			{
+			    if(!kv.JumpToKey(langId))
+			    {
+			        LogError("[CP] not found languageId in ''part%i'' ''%s''", partIndex, langId);
+			        // 이 경우에는 그냥 영어로 변경.
+			    }
+			}
+
+	        kv.GetString(key, values, bufferLength);
+			delete kv;
+	    }
 	}
 }
 
