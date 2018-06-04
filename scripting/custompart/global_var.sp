@@ -310,7 +310,7 @@ methodmap CPConfigKeyValues < KeyValues {
 		float maxChargeDamage = 0.0;
 
 		if(this.ImportPartConfig(kv, partIndex))
-	        maxChargeDamage = KvGetFloat(PartKV, "active_max_charge", 100.0);
+	        maxChargeDamage = kv.GetFloat("active_max_charge", 100.0);
 
 		delete kv;
 	    return maxChargeDamage;
@@ -335,7 +335,7 @@ methodmap CPConfigKeyValues < KeyValues {
 	            do
 	            {
 	                Format(key, sizeof(key), "only_allow_weapon%i", ++count);
-	                value = KvGetNum(PartKV, key, 0);
+	                value = kv.GetNum(key, 0);
 
 	                if(value == index)
 	                    return true;
