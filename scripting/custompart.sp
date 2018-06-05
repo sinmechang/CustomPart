@@ -223,7 +223,7 @@ public Action OnRoundEnd(Handle event, const char[] name, bool dont)
                              ActivedPartSlotArray[client].Set(target, maxSlot[target]);
                              Forward_OnGetPart_Post(client, maxSlot[target]);
 
-                             if(IsPartActive(maxSlot[target]))
+                             if(PartKV.IsPartActive(maxSlot[target]))
                                  PartMaxChargeDamage[client] += GetPartMaxChargeDamage(maxSlot[target]);
                          }
                 }
@@ -331,7 +331,7 @@ public Action ClientTimer(Handle timer)
                 {
                     if(IsValidSlot(target, count) && PartKV.IsValidPart((part = GetClientPart(target, count))))
                     {
-                        if(IsPartActive(part))
+                        if(PartKV.IsPartActive(part))
                             hasActivePart = true;
 
                         if(partcount <= 5)
@@ -439,7 +439,7 @@ public Action OnCallForMedic(int client, const char[] command, int args)
         for(int count=0; count<MaxPartSlot[client]; count++)
         {
             int part = GetClientPart(client, count);
-            if(IsPartActive(part))
+            if(PartKV.IsPartActive(part))
             {
                 action = Forward_PreActivePart(client, part);
                 if(action == Plugin_Handled)
@@ -625,7 +625,7 @@ public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
                              ActivedPartSlotArray[client].Set(target, maxSlot[target]);
                              Forward_OnGetPart_Post(client, maxSlot[target]);
 
-                             if(IsPartActive(maxSlot[target]))
+                             if(PartKV.IsPartActive(maxSlot[target]))
                                  PartMaxChargeDamage[client] += GetPartMaxChargeDamage(maxSlot[target]);
                          }
                 }
@@ -816,7 +816,7 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
             PartGetCoolTime[client] = GetGameTime() + GetConVarFloat(cvarPropCooltime);
             PrintCenterText(client, "파츠를 흭득하셨습니다!");
 
-            if(IsPartActive(part))
+            if(PartKV.IsPartActive(part))
             {
                 PartMaxChargeDamage[client] += GetPartMaxChargeDamage(part);
             }
@@ -1011,7 +1011,7 @@ bool IsClientHaveActivePart(int client)
     for(int count=0; count<MaxPartSlot[client]; count++)
     {
         part = GetClientPart(client, count);
-        if(IsPartActive(part))
+        if(PartKV.IsPartActive(part))
             return true;
     }
     return false;
