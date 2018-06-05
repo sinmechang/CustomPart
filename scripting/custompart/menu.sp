@@ -145,9 +145,9 @@ void ViewPartBookItem(int client, PartRank rank, int pos)
     char item[500];
     char tempItem[200];
 
-    int count = GetValidPartCount(rank);
+    int count = PartKV.GetValidPartCount(rank);
     int[] partArray = new int[count]
-    GetValidPartArray(rank, partArray, count);
+    PartKV.GetValidPartArray(rank, partArray, count);
 
     int part = partArray[pos];
 
