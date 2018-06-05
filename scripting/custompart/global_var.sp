@@ -146,7 +146,7 @@ methodmap CPConfigKeyValues < KeyValues {
 			{
 				this.GetSectionName(indexKey, sizeof(indexKey));
 
-				if(StrContains(indexKey, "part") > -1 && this.JumpToKey(indexKey))
+				if(StrContains(indexKey, "part") == 0 && this.JumpToKey(indexKey))
 				{
 					ReplaceString(indexKey, sizeof(indexKey), "part", "");
 					part = StringToInt(indexKey);
@@ -177,7 +177,7 @@ methodmap CPConfigKeyValues < KeyValues {
 			do
 			{
 				this.GetSectionName(indexKey, sizeof(indexKey));
-				if(StrContains(indexKey, "part") > -1 && this.JumpToKey(indexKey))
+				if(StrContains(indexKey, "part") == 0 && this.JumpToKey(indexKey))
 				{
 					ReplaceString(indexKey, sizeof(indexKey), "part", "");
 					part = StringToInt(indexKey);
@@ -209,7 +209,7 @@ methodmap CPConfigKeyValues < KeyValues {
 			do
 			{
 				this.GetSectionName(indexKey, sizeof(indexKey));
-				if(StrContains(indexKey, "part") > -1 && this.JumpToKey(indexKey))
+				if(StrContains(indexKey, "part") == 0 && this.JumpToKey(indexKey))
 				{
 					ReplaceString(indexKey, sizeof(indexKey), "part", "");
 					part = StringToInt(indexKey);
