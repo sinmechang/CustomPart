@@ -224,7 +224,7 @@ public Action OnRoundEnd(Handle event, const char[] name, bool dont)
                              Forward_OnGetPart_Post(client, maxSlot[target]);
 
                              if(PartKV.IsPartActive(maxSlot[target]))
-                                 PartMaxChargeDamage[client] += GetPartMaxChargeDamage(maxSlot[target]);
+                                 PartMaxChargeDamage[client] += PartKV.GetPartMaxChargeDamage(maxSlot[target]);
                          }
                 }
             }
@@ -445,7 +445,7 @@ public Action OnCallForMedic(int client, const char[] command, int args)
                 if(action == Plugin_Handled)
                     continue;
 
-                SetClientActiveSlotDuration(client, count, GetActivePartDuration(part));
+                SetClientActiveSlotDuration(client, count, PartKV.GetActivePartDuration(part));
                 Forward_OnActivedPart(client, part);
             }
         }
@@ -626,7 +626,7 @@ public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
                              Forward_OnGetPart_Post(client, maxSlot[target]);
 
                              if(PartKV.IsPartActive(maxSlot[target]))
-                                 PartMaxChargeDamage[client] += GetPartMaxChargeDamage(maxSlot[target]);
+                                 PartMaxChargeDamage[client] += PartKV.GetPartMaxChargeDamage(maxSlot[target]);
                          }
                 }
             }
@@ -818,7 +818,7 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
 
             if(PartKV.IsPartActive(part))
             {
-                PartMaxChargeDamage[client] += GetPartMaxChargeDamage(part);
+                PartMaxChargeDamage[client] += PartKV.GetPartMaxChargeDamage(part);
             }
 
             AcceptEntityInput(entity, "kill");
@@ -1028,7 +1028,7 @@ float GetClientTotalCooldown(int client)
 
         if(IsValidSlot(client, count) && PartKV.IsValidPart(part))
         {
-            totalCooldown += GetActivePartDuration(part);
+            totalCooldown += PartKV.GetActivePartDuration(part);
         }
     }
 
