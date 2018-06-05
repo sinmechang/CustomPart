@@ -336,7 +336,7 @@ public Action ClientTimer(Handle timer)
 
                         if(partcount <= 5)
                         {
-                            GetPartString(part, "name", partName, sizeof(partName));
+                            PartKV.GetPartString(part, "name", partName, sizeof(partName), client);
                             Format(HudMessage, sizeof(HudMessage), "%s\n%s", HudMessage, partName);
                         }
 
@@ -365,7 +365,7 @@ public Action ClientTimer(Handle timer)
                         {
                             if(GetClientActiveSlotDuration(target, count) > 0.0 && PartKV.IsValidPart((part = GetClientPart(target, count))))
                             {
-                                GetPartString(part, "name", partName, sizeof(partName));
+                                PartKV.GetPartString(part, "name", partName, sizeof(partName), client);
                                 if(activeCount == 0)
                                 {
                                     Format(HudMessage, sizeof(HudMessage), "%s: %.1f", partName, GetClientActiveSlotDuration(target, count));
