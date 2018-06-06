@@ -6,6 +6,7 @@
 
 #include "custompart/forwards.sp"
 
+#define CP_DEBUG true
 
 #define CPFLAG_DONOTCLEARSLOT (1<<1)
 #define CPFLAG_DISABLE_HUD (1<<2)

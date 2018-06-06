@@ -279,3 +279,14 @@ public void GetPartRankColor(PartRank rank, int colors[4])
     }
     colors[3] = 255;
 }
+
+stock void Debug(const char[] text, any ...)
+{
+	if(!CP_DEBUG) return;
+
+	int len = strlen(myString) + 255;
+	char[] formatted = new char[len];
+	VFormat(formatted, len, text, 2);
+
+	CPrintToServer(formatted);
+}
