@@ -28,6 +28,8 @@ Core Plugin By Nopied◎
 #include "custompart/menu.sp"
 #include "custompart/part_stocks.sp"
 
+#include "custompart/natives.sp"
+
 #define PLUGIN_NAME "CustomPart Core"
 #define PLUGIN_AUTHOR "Nopied◎"
 #define PLUGIN_DESCRIPTION "Yup. Yup."
@@ -71,9 +73,8 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, err_max)
     CreateNative("CP_GetClientCPFlags", Native_GetClientCPFlags);
     CreateNative("CP_SetClientCPFlags", Native_SetClientCPFlags);
 
+    Init_ConfigNatives();
     Init_Forwards();
-
-
 
     return APLRes_Success;
 }
@@ -785,7 +786,7 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
         {
             part = GetPartPropInfo(entity, Info_CustomIndex);
             if(!PartKV.IsValidPart(part))
-                part = RandomPart(client, rank);
+                part = PartKV.RandomPart(client, rank);
 
             slot = FindActiveSlot(client);
             tempPart = part;
@@ -1207,7 +1208,7 @@ public Native_IsEnabled(Handle plugin, int numParams)
 
 public Native_RandomPart(Handle plugin, int numParams)
 {
-    return _:RandomPart(GetNativeCell(1), GetNativeCell(2));
+    return _:PartKV.RandomPart(GetNativeCell(1), GetNativeCell(2));
 }
 
 public Native_RandomPartRank(Handle plugin, int numParams)
