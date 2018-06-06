@@ -174,6 +174,8 @@ public int Native_CPC_RandomPart(Handle plugin, int numParams)
 
                     count++;
                     parts.Push(part);
+
+                    Debug("Pushed %d", part);
                 }
             }
         }

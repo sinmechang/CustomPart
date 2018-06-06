@@ -794,6 +794,7 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
 
             if(part <= 0 || slot < 0) // 유효한 파츠이나 파츠 슬릇 체크
             {
+                Debug("OnPickup: part = %d slot = %d", part, slot);
                 IgnoreAndKickIt(client, entity);
                 return Plugin_Continue;
             }
