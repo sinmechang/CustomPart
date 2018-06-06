@@ -288,5 +288,5 @@ stock void Debug(const char[] text, any ...)
 	char[] formatted = new char[len];
 	VFormat(formatted, len, text, 2);
 
-	CPrintToServer(formatted);
+	CPrintToServer("{yellow}[CP_DEBUG]{default} %s", formatted);
 }
