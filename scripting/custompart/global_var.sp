@@ -24,11 +24,13 @@ methodmap CPConfigKeyValues < KeyValues {
 
 	public native int GetPartSymbol(const int partIndex);
 
-	public native bool ImportPartConfig(CPConfigKeyValues victimKv, const int partIndex);
+	public native void ExportSelf(CPConfigKeyValues victimKv);
 
 	public native CPPart LoadPart(const int partIndex);
 
 	public native bool IsValidPart(const int partIndex);
+
+	public native bool JumpToPart(const int partIndex);
 
 	public native bool CanUsePartClass(const int partIndex, const TFClassType class);
 
