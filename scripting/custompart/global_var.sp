@@ -132,6 +132,7 @@ Handle cvarPropVelocity;
 Handle cvarPropForNoBossTeam;
 Handle cvarPropSize;
 Handle cvarPropCooltime;
+Handle cvarDebug;
 
 int CPFlags[MAXPLAYERS+1];
 
@@ -282,11 +283,12 @@ public void GetPartRankColor(PartRank rank, int colors[4])
 
 stock void Debug(const char[] text, any ...)
 {
-	if(!CP_DEBUG) return;
+	if(!GetConVarBool(cvarDebug)) return;
 
-	int len = strlen(myString) + 255;
+	int len = strlen(text) + 255;
 	char[] formatted = new char[len];
 	VFormat(formatted, len, text, 2);
 
-	CPrintToServer("{yellow}[CP_DEBUG]{default} %s", formatted);
+	CPrintToChatAll("{yellow}[CP_DEBUG]{default} %s", formatted);
+	LogMessage("[CP_DEBUG] %s", formatted);
 }

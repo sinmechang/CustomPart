@@ -88,6 +88,7 @@ public void OnPluginStart()
       cvarPropForNoBossTeam = CreateConVar("cp_prop_for_team", "2", "0 혹은 1은 제한 없음, 2는 레드팀에게만, 3은 블루팀에게만. (생성도 포함됨.)", _, true, 0.0, true, 2.0);
       cvarPropSize = CreateConVar("cp_prop_size", "50.0", "캡슐 섭취 범위", _, true, 0.1);
       cvarPropCooltime = CreateConVar("cp_prop_cooltime", "1.0", "캡슐 섭취 쿨타임.", _, true, 0.1);
+      cvarDebug = CreateConVar("cp_debug", "1", "", _, true, 0.0, true, 1.0);
 
       RegAdminCmd("slot", TestSlot, ADMFLAG_CHEATS, "");
       RegAdminCmd("givepart", GivePart, ADMFLAG_CHEATS, "");
