@@ -57,12 +57,14 @@ methodmap CPConfigKeyValues < KeyValues {
 		int integerRank = view_as<int>(rank);
 		char indexKey[20];
 
+		this.Rewind();
+
 		if(this.GotoFirstSubKey())
 		{
 			do
 			{
 				this.GetSectionName(indexKey, sizeof(indexKey));
-				if(StrContains(indexKey, "part") > -1 && this.JumpToKey(indexKey))
+				if(StrContains(indexKey, "part") > -1)
 				{
 					ReplaceString(indexKey, sizeof(indexKey), "part", "");
 					part = StringToInt(indexKey);
@@ -76,15 +78,13 @@ methodmap CPConfigKeyValues < KeyValues {
 			}
 			while(this.GotoNextKey() && count < size);
 		}
-		this.Rewind();
 	}
 
 	public void GetPartString(const int partIndex, const char[] key, char[] values, const int bufferLength, const int client = 0)
 	{
-		CPConfigKeyValues kv = view_as<CPConfigKeyValues>(new KeyValues("custompart"));
 		bool validClient = (client > 0 && IsClientInGame(client));
 
-		if(!this.ImportPartConfig(kv, partIndex))
+		if(!this.JumpToPart(partIndex))
 		{
 			if(validClient)
 				SetGlobalTransTarget(client);
@@ -102,16 +102,15 @@ methodmap CPConfigKeyValues < KeyValues {
 
 			if(!StrEqual(langId, "en"))
 			{
-				if(!kv.JumpToKey(langId))
+				if(!this.JumpToKey(langId))
 				{
 				    LogError("[CP] not found languageId in ''part%i'' ''%s''", partIndex, langId);
 				    // 이 경우에는 그냥 영어로 변경.
 				}
 			}
 
-			kv.GetString(key, values, bufferLength);
+			this.GetString(key, values, bufferLength);
 		}
-		delete kv;
 	}
 }
 

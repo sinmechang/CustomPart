@@ -800,6 +800,7 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
                 return Plugin_Continue;
             }
 
+            // Debug("OnPickup: part = %d slot = %d", part, slot);
             action = Forward_OnGetPart(tempClient, tempEntity, tempPart);
             if(action == Plugin_Handled || action == Plugin_Stop)
             {

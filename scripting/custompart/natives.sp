@@ -72,7 +72,7 @@ public int Native_CPC_IsValidPart(Handle plugin, int numParams)
     CPConfigKeyValues thisKv = GetNativeCell(1);
     int partIndex = GetNativeCell(2);
 
-    return view_as<int>(thisKv.GetPartSymbol(partIndex) > -1);
+    return view_as<int>(thisKv.JumpToPart(partIndex));
 }
 
 public int Native_CPC_JumpToPart(Handle plugin, int numParams)
@@ -80,11 +80,16 @@ public int Native_CPC_JumpToPart(Handle plugin, int numParams)
     CPConfigKeyValues thisKv = GetNativeCell(1);
     int partIndex = GetNativeCell(2);
 
-    thisKv.Rewind();
-
-    char temp[30];
+    char temp[30], currentSection[30];
     Format(temp, sizeof(temp), "part%i", partIndex);
+    thisKv.GetSectionName(currentSection, sizeof(currentSection));
 
+    if(StrEqual(temp, currentSection))
+    {
+        return true;
+    }
+
+    thisKv.Rewind();
     return thisKv.JumpToKey(temp);
 }
 
@@ -96,12 +101,9 @@ public int Native_CPC_CanUsePartClass(Handle plugin, int numParams)
 
     static const char classnames[][] = {"", "scout", "sniper", "soldier", "demoman", "medic", "heavy", "pyro", "spy", "engineer"};
     char classes[80];
-    CPConfigKeyValues kv = view_as<CPConfigKeyValues>(new KeyValues("custompart"));
 
-    if(thisKv.ImportPartConfig(kv, partIndex))
-        kv.GetString("able_to_class", classes, sizeof(classes));
-
-    delete kv;
+    if(thisKv.JumpToPart(partIndex))
+        thisKv.GetString("able_to_class", classes, sizeof(classes));
 
     if(classes[0] == '\0')
         return view_as<int>(true);
@@ -121,6 +123,8 @@ public int Native_CPC_GetValidPartCount(Handle plugin, int numParams)
     int part;
     int integerRank = view_as<int>(rank);
     char indexKey[20];
+
+    thisKv.Rewind();
 
     if(thisKv.GotoFirstSubKey())
     {
@@ -142,7 +146,6 @@ public int Native_CPC_GetValidPartCount(Handle plugin, int numParams)
         }
         while(thisKv.GotoNextKey());
     }
-    thisKv.Rewind();
 
     return count;
 }
@@ -161,6 +164,8 @@ public int Native_CPC_RandomPart(Handle plugin, int numParams)
     char indexKey[20];
     TFClassType class = TF2_GetPlayerClass(client);
     EngineVersion gameEngine = GetEngineVersion();
+
+    thisKv.Rewind();
 
     if(thisKv.GotoFirstSubKey())
     {
@@ -191,8 +196,6 @@ public int Native_CPC_RandomPart(Handle plugin, int numParams)
         while(thisKv.GotoNextKey());
     }
 
-    thisKv.Rewind();
-
     SetRandomSeed(GetTime());
     int answer;
 
@@ -221,13 +224,10 @@ public int Native_CPC_IsPartActive(Handle plugin, int numParams)
     int partIndex = GetNativeCell(2);
 
     int num;
-    CPConfigKeyValues kv = view_as<CPConfigKeyValues>(new KeyValues("custompart"));
-    thisKv.ExportSelf(kv);
 
-    if(kv.JumpToPart(partIndex))
-        num = kv.GetNum("active_part", 0) > 0;
+    if(thisKv.JumpToPart(partIndex))
+        num = thisKv.GetNum("active_part", 0) > 0;
 
-    delete kv;
     return view_as<int>(num > 0);
 }
 
@@ -236,14 +236,11 @@ public int Native_CPC_GetPartRank(Handle plugin, int numParams)
     CPConfigKeyValues thisKv = GetNativeCell(1);
     int partIndex = GetNativeCell(2);
 
-    CPConfigKeyValues kv = view_as<CPConfigKeyValues>(new KeyValues("custompart"));
     int rank = view_as<int>(Rank_Normal);
-    thisKv.ExportSelf(kv);
 
-    if(kv.JumpToPart(partIndex))
-        rank = kv.GetNum("rank", 0);
+    if(thisKv.JumpToPart(partIndex))
+        rank = thisKv.GetNum("rank", 0);
 
-    delete kv;
     return rank;
 
 }
@@ -253,14 +250,11 @@ public int Native_CPC_GetActivePartDuration(Handle plugin, int numParams)
     CPConfigKeyValues thisKv = GetNativeCell(1);
     int partIndex = GetNativeCell(2);
 
-    CPConfigKeyValues kv = view_as<CPConfigKeyValues>(new KeyValues("custompart"));
     float duration = 0.0;
-    thisKv.ExportSelf(kv);
 
-    if(kv.JumpToPart(partIndex))
-        duration = kv.GetFloat("active_duration", 8.0);
+    if(thisKv.JumpToPart(partIndex))
+        duration = thisKv.GetFloat("active_duration", 8.0);
 
-    delete kv;
     return view_as<int>(duration);
 }
 
@@ -269,14 +263,11 @@ public int Native_CPC_GetActivePartCooldown(Handle plugin, int numParams)
     CPConfigKeyValues thisKv = GetNativeCell(1);
     int partIndex = GetNativeCell(2);
 
-    CPConfigKeyValues kv = view_as<CPConfigKeyValues>(new KeyValues("custompart"));
-    thisKv.ExportSelf(kv);
     float cooldown = 0.0;
 
-    if(kv.JumpToPart(partIndex))
-        cooldown = kv.GetFloat("active_cooldown", 8.0);
+    if(thisKv.JumpToPart(partIndex))
+        cooldown = thisKv.GetFloat("active_cooldown", 8.0);
 
-    delete kv;
     return view_as<int>(cooldown);
 }
 
@@ -285,14 +276,11 @@ public int Native_CPC_GetPartMaxChargeDamage(Handle plugin, int numParams)
     CPConfigKeyValues thisKv = GetNativeCell(1);
     int partIndex = GetNativeCell(2);
 
-    CPConfigKeyValues kv = view_as<CPConfigKeyValues>(new KeyValues("custompart"));
-    thisKv.ExportSelf(kv);
     float maxChargeDamage = 0.0;
 
-    if(kv.JumpToPart(partIndex))
-        maxChargeDamage = kv.GetFloat("active_max_charge", 100.0);
+    if(thisKv.JumpToPart(partIndex))
+        maxChargeDamage = thisKv.GetFloat("active_max_charge", 100.0);
 
-    delete kv;
     return view_as<int>(maxChargeDamage);
 }
 
@@ -305,10 +293,7 @@ public int Native_CPC_IsCanUseWeaponPart(Handle plugin, int numParams)
     int index, count, value, weapon;
     char key[20];
 
-    CPConfigKeyValues kv = view_as<CPConfigKeyValues>(new KeyValues("custompart"));
-    thisKv.ExportSelf(kv);
-
-    if(!kv.JumpToPart(partIndex))
+    if(!thisKv.JumpToPart(partIndex))
         return view_as<int>(false);
 
     for(int slot = 0; slot < 5; slot++)
@@ -322,7 +307,7 @@ public int Native_CPC_IsCanUseWeaponPart(Handle plugin, int numParams)
             do
             {
                 Format(key, sizeof(key), "only_allow_weapon%i", ++count);
-                value = kv.GetNum(key, 0);
+                value = thisKv.GetNum(key, 0);
 
                 if(value == index)
                     return view_as<int>(true);
