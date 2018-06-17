@@ -84,7 +84,7 @@ methodmap CPConfigKeyValues < KeyValues {
 	{
 		char langId[4];
 
-		if(client > 0 && IsClientInGame(client))
+		if(client > 0 && IsClientInGame(client) && !IsFakeClient(client))
 			GetLanguageInfo(GetClientLanguage(client), langId, sizeof(langId));
 		else
 			Format(langId, sizeof(langId), "en");
