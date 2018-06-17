@@ -229,13 +229,13 @@ void ViewPart(int client, int partIndex)
         char item[300];
         char tempItem[200];
 
-        PartKV.GetPartString(partIndex, "name", tempItem, sizeof(tempItem));
+        PartKV.GetPartString(partIndex, "name", tempItem, sizeof(tempItem), client);
         Format(item, sizeof(item), "방금 흭득한 파츠: %s", tempItem);
 
-        PartKV.GetPartString(partIndex, "ability_description", tempItem, sizeof(tempItem));
+        PartKV.GetPartString(partIndex, "ability_description", tempItem, sizeof(tempItem), client);
         Format(item, sizeof(item), "%s\n능력 설명: %s", item, tempItem);
 
-        PartKV.GetPartString(partIndex, "idea_owner_nickname", tempItem, sizeof(tempItem));
+        PartKV.GetPartString(partIndex, "idea_owner_nickname", tempItem, sizeof(tempItem), client);
         if(tempItem[0] != '\0')
             Format(item, sizeof(item), "%s\n아이디어 제공자: %s", item, tempItem);
         else
@@ -260,19 +260,19 @@ void ViewSlotPart(int client, int slot=0)
         // menu.SetTitle("현재 파츠: (슬릇: %i / %i)", slot+1, MaxPartSlot[client]);
         Format(item, sizeof(item), "현재 파츠: (슬릇: %i / %i)", slot+1, MaxPartSlot[client]);
 
-        PartKV.GetPartString(part, "name", tempItem, sizeof(tempItem));
+        PartKV.GetPartString(part, "name", tempItem, sizeof(tempItem), client);
         Format(item, sizeof(item), "%s\n\n이름: %s", item, tempItem);
         // menu.AddItem("name", item, ITEMDRAW_DISABLED);
 
-        PartKV.GetPartString(part, "description", tempItem, sizeof(tempItem));
+        PartKV.GetPartString(part, "description", tempItem, sizeof(tempItem), client);
         Format(item, sizeof(item), "%s\n\n설명: %s", item, tempItem);
         // menu.AddItem("description", item, ITEMDRAW_DISABLED);
 
-        PartKV.GetPartString(part, "ability_description", tempItem, sizeof(tempItem));
+        PartKV.GetPartString(part, "ability_description", tempItem, sizeof(tempItem), client);
         Format(item, sizeof(item), "%s\n\n능력 설명: %s", item, tempItem);
         // menu.AddItem("ability_description", item, ITEMDRAW_DISABLED);
 
-        PartKV.GetPartString(part, "idea_owner_nickname", tempItem, sizeof(tempItem));
+        PartKV.GetPartString(part, "idea_owner_nickname", tempItem, sizeof(tempItem), client);
         if(tempItem[0] != '\0') Format(item, sizeof(item), "%s\n\n아이디어 제공: %s\n\n", item, tempItem);
         else Format(item, sizeof(item), "%s\n\nPOTRY SERVER ORIGINAL CUSTOMPART\n\n", item);
         // menu.AddItem("idea_owner_nickname", item, ITEMDRAW_DISABLED);
