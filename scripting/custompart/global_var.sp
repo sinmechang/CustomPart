@@ -91,7 +91,6 @@ methodmap CPConfigKeyValues < KeyValues {
 
 		CPConfigKeyValues cloned = view_as<CPConfigKeyValues>(new KeyValues("custompart"));
 
-
 		if(keyName[0] != '\0')
 		{
 			int id;
@@ -113,9 +112,8 @@ methodmap CPConfigKeyValues < KeyValues {
 			cloned.Import(this);
 		}
 
-
 		if(!StrEqual(langId, "en"))
-		cloned.JumpToKey(langId);
+			cloned.JumpToKey(langId);
 
 		cloned.GetString(key, value, buffer);
 		delete cloned;
