@@ -241,7 +241,7 @@ void ViewPart(int client, int partIndex)
         else
             Format(item, sizeof(item), "%s\nPOTRY SERVER ORIGINAL CUSTOMPART", item);
 
-        PrintHintText(client, item);
+        PrintHintText(client, item); // TODO: TUTORIALTEXT
     }
 }
 
