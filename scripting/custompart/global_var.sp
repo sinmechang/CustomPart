@@ -125,7 +125,7 @@ methodmap CPConfigKeyValues < KeyValues {
 	{
 		if(!this.JumpToPart(partIndex))
 		{
-			this.GetValue("empty_message", key, values, bufferLength, client);
+			this.GetValue("empty_message", "message", values, bufferLength, client);
 		}
 		else
 		{
