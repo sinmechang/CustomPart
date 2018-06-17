@@ -80,36 +80,58 @@ methodmap CPConfigKeyValues < KeyValues {
 		}
 	}
 
+	public bool GetValue(const char[] keyName, const char[] key, char[] value, const int buffer, const int client = 0)
+	{
+		char langId[4];
+
+		if(client > 0 && IsClientInGame(client))
+			GetLanguageInfo(GetClientLanguage(client), langId, sizeof(langId));
+		else
+			Format(langId, sizeof(langId), "en");
+
+		CPConfigKeyValues cloned = view_as<CPConfigKeyValues>(new KeyValues("custompart"));
+
+
+		if(keyName[0] != '\0')
+		{
+			int id;
+
+			this.GetSectionSymbol(id);
+			this.Rewind();
+
+			cloned.Import(this);
+			this.JumpToKeySymbol(id);
+
+			if(!cloned.JumpToKey(keyName))
+			{
+				LogError("[CP] not found keyName in config ''%s''", keyName);
+				delete cloned;
+				return false;
+			}
+		}
+		else {
+			cloned.Import(this);
+		}
+
+
+		if(!StrEqual(langId, "en"))
+		cloned.JumpToKey(langId);
+
+		cloned.GetString(key, value, buffer);
+		delete cloned;
+
+		return true;
+	}
+
 	public void GetPartString(const int partIndex, const char[] key, char[] values, const int bufferLength, const int client = 0)
 	{
-		bool validClient = (client > 0 && IsClientInGame(client));
-
 		if(!this.JumpToPart(partIndex))
 		{
-			if(validClient)
-				SetGlobalTransTarget(client);
-			Format(values, bufferLength, "%t", "cp_empty");
-			SetGlobalTransTarget(LANG_SERVER);
+			this.GetValue("empty_message", key, values, bufferLength, client);
 		}
 		else
 		{
-			char langId[4];
-
-			if(validClient)
-				GetLanguageInfo(GetClientLanguage(client), langId, sizeof(langId));
-			else
-				Format(langId, sizeof(langId), "en");
-
-			if(!StrEqual(langId, "en"))
-			{
-				if(!this.JumpToKey(langId))
-				{
-				    LogError("[CP] not found languageId in ''part%i'' ''%s''", partIndex, langId);
-				    // 이 경우에는 그냥 영어로 변경.
-				}
-			}
-
-			this.GetString(key, values, bufferLength);
+			this.GetValue("", key, values, bufferLength, client);
 		}
 	}
 }
