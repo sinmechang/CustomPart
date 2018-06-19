@@ -43,15 +43,15 @@ int GetPartPropInfo(int prop, PartInfo partinfo)
 {
     switch(partinfo)
     {
-      case Info_Rank:
-      {
-        return view_as<int>(PartPropRank[prop]);
-      }
+        case Info_Rank:
+        {
+            return view_as<int>(PartPropRank[prop]);
+        }
 
-      case Info_CustomIndex:
-      {
-        return PartPropCustomIndex[prop];
-      }
+        case Info_CustomIndex:
+        {
+            return PartPropCustomIndex[prop];
+        }
     }
 
     return -1;
@@ -61,16 +61,16 @@ void SetPartPropInfo(int prop, PartInfo partinfo, any value, bool changeModel = 
 {
     switch(partinfo)
     {
-      case Info_Rank:
-      {
-        // PartPropRank[prop] = view_as<PartRank>(value);
-        PartPropRank[prop] = value;
-      }
+        case Info_Rank:
+        {
+            // PartPropRank[prop] = view_as<PartRank>(value);
+            PartPropRank[prop] = value;
+        }
 
-      case Info_CustomIndex:
-      {
-        PartPropCustomIndex[prop] = value;
-      }
+        case Info_CustomIndex:
+        {
+            PartPropCustomIndex[prop] = value;
+        }
     }
 
     if(changeModel)
