@@ -689,55 +689,6 @@ public Action OnPlayerDeath(Handle event, const char[] name, bool dont)
     return Plugin_Continue;
 }
 
-int SpawnCustomPart(PartRank partRank, float position[3], float velocity[3], bool IsFake)
-{
-    if(AllPartPropCount > 50)
-    {
-        return -1;
-    }
-
-    int prop = CreateEntityByName("prop_physics_override");
-
-    if(IsValidEntity(prop))
-    {
-        AllPartPropCount++;
-
-        char modelPath[PLATFORM_MAX_PATH];
-        int colors[4];
-
-        GetPartModelString(partRank, modelPath, sizeof(modelPath));
-
-        PartPropRank[prop] = partRank;
-        PartPropCustomIndex[prop] = 0;
-
-        SetEntityModel(prop, modelPath);
-        SetEntityMoveType(prop, MOVETYPE_VPHYSICS);
-        SetEntProp(prop, Prop_Send, "m_CollisionGroup", 2);
-
-        SetEntProp(prop, Prop_Send, "m_usSolidFlags", 0x0004);
-        DispatchSpawn(prop);
-
-        GetPartRankColor(partRank, colors);
-
-        int glow = TF2_CreateGlow(prop);
-        TF2_SetGlowColor(glow, colors);
-
-        TeleportEntity(prop, position, NULL_VECTOR, velocity);
-
-        if(IsFake)
-        {
-            CreateTimer(2.0, FakePickup, EntIndexToEntRef(prop));
-            SDKHook(prop, SDKHook_SetTransmit, FakePropTransmit);
-        }
-        else
-        {
-            CreateTimer(0.05, OnPickup, EntIndexToEntRef(prop));
-        }
-        return prop;
-    }
-    return -1;
-}
-
 public Action FakePropTransmit(int entity, int client)
 {
 	if(IsCorrectTeam(client))
