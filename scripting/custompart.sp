@@ -163,46 +163,30 @@ public Action OnRoundStart(Handle event, const char[] name, bool dont)
 
 public Action OnRoundEnd(Handle event, const char[] name, bool dont)
 {
-    for(int client=1; client<=MaxClients; client++)
+    for(int client = 1; client <= MaxClients; client++)
     {
         CPFlags[client] = 0;
-
-        bool changed = false;
 
         if(ActivedPartSlotArray[client].Length > 0) // TODO: 동일한 역할들을 묶어놓기.
         {
             RefrashPartSlotArray(client, true, true);
 
-            Action action;
-            int remainCount = 0;
-            bool[] gotoNextRound = new bool[MaxPartSlot[client]]
-            int temp, tempClient = client, tempPart;
-            bool tempGoToNextRound = false;
-            int[] maxSlot = new int[MaxPartSlot[client]]
+            int temp, tempPart, tempClient = client;
 
-            for(int target=0; target<MaxPartSlot[client]; target++)
+            for(int target = 0; target < MaxPartSlot[client]; target++)
             {
                 temp = ActivedPartSlotArray[client].Get(target);
 
                 if(!PartKV.IsValidPart(temp)) continue;
 
                 tempPart = temp;
-                tempGoToNextRound = false;
-
-                action = Forward_OnSlotClear(tempClient, tempPart, tempGoToNextRound);
+                Forward_OnSlotClear(tempClient, tempPart);
 
                 float duration = GetClientActiveSlotDuration(client, target);
 
                 if(duration <= 0.0)
                 {
                     Forward_OnActivedPartEnd(client, temp);
-                }
-
-                if(action == Plugin_Handled)
-                {
-                    maxSlot[remainCount++] = temp;
-                    gotoNextRound[remainCount] = tempGoToNextRound;
-                    changed = true;
                 }
             }
 
@@ -211,25 +195,6 @@ public Action OnRoundEnd(Handle event, const char[] name, bool dont)
             PartCharge[client] = 0.0;
             PartCooldown[client] = -1.0;
             PartMaxChargeDamage[client] = 0.0;
-
-            if(changed)
-            {
-                int roundstate = CheckRoundState();
-                for(int target=0; target<MaxPartSlot[client]; target++)
-                {
-                    if(target < remainCount && target < MaxPartSlot[client]
-                         &&
-                         (!gotoNextRound[target] || (roundstate != 1 && gotoNextRound[target]))
-                         )
-                         {
-                             ActivedPartSlotArray[client].Set(target, maxSlot[target]);
-                             Forward_OnGetPart_Post(client, maxSlot[target]);
-
-                             if(PartKV.IsPartActive(maxSlot[target]))
-                                 PartMaxChargeDamage[client] += PartKV.GetPartMaxChargeDamage(maxSlot[target]);
-                         }
-                }
-            }
         }
         // TODO: g_hClientInfo 슬릇에 대하여.
     }
@@ -533,24 +498,16 @@ public void OnClientDisconnect(int client)
     {
         RefrashPartSlotArray(client, true);
 
-        Action action;
-        int remainCount = 0;
         int temp, tempClient = client, tempPart;
-        int[] maxSlot = new int[MaxPartSlot[client]]
 
-        for(int target=0; target<MaxPartSlot[client]; target++)
+        for(int target = 0; target < MaxPartSlot[client]; target++)
         {
             temp = ActivedPartSlotArray[client].Get(target);
             tempPart = temp;
 
             if(!PartKV.IsValidPart(tempPart)) continue;
 
-            action = Forward_OnSlotClear(tempClient, tempPart, false);
-
-            if(action == Plugin_Handled)
-            {
-                maxSlot[remainCount++] = temp;
-            }
+            Forward_OnSlotClear(tempClient, tempPart);
         }
     }
 
@@ -569,79 +526,38 @@ public void OnClientDisconnect(int client)
 
 public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
 {
-    if(enabled)
+    if(enabled) return Plugin_Continue;
+
+    int client = GetClientOfUserId(GetEventInt(event, "userid"));
+    PartGetCoolTime[client] = 0.0;
+
+    if(ActivedPartSlotArray[client].Length > 0)
     {
-        int client = GetClientOfUserId(GetEventInt(event, "userid"));
-        PartGetCoolTime[client] = 0.0;
-        bool changed = false;
+        RefrashPartSlotArray(client, true);
 
-        if(ActivedPartSlotArray[client].Length > 0 && !(CPFlags[client] & CPFLAG_DONOTCLEARSLOT))
+        int temp, tempPart, tempClient = client;
+
+        for(int target = 0; target < MaxPartSlot[client]; target++)
         {
-            RefrashPartSlotArray(client, true);
+            temp = ActivedPartSlotArray[client].Get(target);
 
-            Action action;
-            int remainCount = 0;
-            bool[] gotoNextRound = new bool[MaxPartSlot[client]]
-            int temp, tempPart, tempClient = client;
-            bool tempGoToNextRound = false;
-            int[] maxSlot = new int[MaxPartSlot[client]]
+            if(!PartKV.IsValidPart(temp)) continue;
 
-            for(int target=0; target<MaxPartSlot[client]; target++)
-            {
-                temp = ActivedPartSlotArray[client].Get(target);
+            tempPart = temp;
+            Forward_OnSlotClear(tempClient, tempPart);
 
-                if(!PartKV.IsValidPart(temp)) continue;
-
-                tempPart = temp;
-                tempGoToNextRound = false;
-
-                action = Forward_OnSlotClear(tempClient, tempPart, tempGoToNextRound);
-
-                if(ActivedDurationArray[client].Get(target) > 0.0)
-                    Forward_OnActivedPartEnd(client, temp);
-
-                if(action == Plugin_Handled)
-                {
-                    maxSlot[remainCount++] = temp;
-                    gotoNextRound[remainCount] = tempGoToNextRound;
-                    changed = true;
-                }
-            }
-
-            RefrashPartSlotArray(client);
-            MaxPartSlot[client] = MaxPartGlobalSlot;
-            PartCharge[client] = 0.0;
-            PartCooldown[client] = -1.0;
-            PartMaxChargeDamage[client] = 0.0;
-
-            if(changed)
-            {
-                int roundstate = CheckRoundState();
-                for(int target=0; target<MaxPartSlot[client]; target++)
-                {
-                    if(target < remainCount && target < MaxPartSlot[client]
-                         &&
-                         (!gotoNextRound[target] || (roundstate != 1 && gotoNextRound[target]))
-                         )
-                         {
-                             ActivedPartSlotArray[client].Set(target, maxSlot[target]);
-                             Forward_OnGetPart_Post(client, maxSlot[target]);
-
-                             if(PartKV.IsPartActive(maxSlot[target]))
-                                 PartMaxChargeDamage[client] += PartKV.GetPartMaxChargeDamage(maxSlot[target]);
-                         }
-                }
-            }
-        }
-        else
-        {
-            MaxPartSlot[client] = MaxPartGlobalSlot;
-            RefrashPartSlotArray(client);
-            PartCharge[client] = 0.0;
-            PartCooldown[client] = 0.0;
-            PartMaxChargeDamage[client] = 0.0;
+            if(ActivedDurationArray[client].Get(target) > 0.0)
+                Forward_OnActivedPartEnd(client, temp);
         }
     }
+
+    RefrashPartSlotArray(client);
+    MaxPartSlot[client] = MaxPartGlobalSlot;
+    PartCharge[client] = 0.0;
+    PartCooldown[client] = -1.0;
+    PartMaxChargeDamage[client] = 0.0;
+
+    return Plugin_Continue
 }
 
 public void OnTakeDamagePost(int client, int attacker, int inflictor, float damage, int damagetype)
@@ -803,7 +719,6 @@ void RefrashPartSlotArray(int client, bool holdParts=false, bool holdCooltime=fa
             {
                 ActivedPartSlotArray[client].Set(count, 0);
                 ActivedDurationArray[client].Set(count, 0.0);
-
             }
         }
         else
@@ -812,9 +727,8 @@ void RefrashPartSlotArray(int client, bool holdParts=false, bool holdCooltime=fa
 
             if(PartKV.IsValidPart(part))
             {
-                Forward_OnSlotClear(client, part, false);
+                Forward_OnSlotClear(client, part);
             }
-
         }
     }
 }

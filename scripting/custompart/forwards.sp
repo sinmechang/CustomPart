@@ -15,7 +15,7 @@ void Init_Forwards()
     OnTouchedPartPropPost = CreateGlobalForward("CP_OnTouchedPartProp_Post", ET_Hook, Param_Cell, Param_Cell);
     OnGetPart = CreateGlobalForward("CP_OnGetPart", ET_Hook, Param_Cell, Param_CellByRef, Param_CellByRef);
     OnGetPartPost = CreateGlobalForward("CP_OnGetPart_Post", ET_Hook, Param_Cell, Param_Cell);
-    OnSlotClear = CreateGlobalForward("CP_OnSlotClear", ET_Hook, Param_Cell, Param_Cell, Param_Cell);
+    OnSlotClear = CreateGlobalForward("CP_OnSlotClear", ET_Hook, Param_Cell, Param_Cell);
     PreActivePart = CreateGlobalForward("CP_PreActivePart", ET_Hook, Param_Cell, Param_CellByRef);
     OnActivedPart = CreateGlobalForward("CP_OnActivedPart", ET_Hook, Param_Cell, Param_Cell);
     OnActivedPartEnd = CreateGlobalForward("CP_OnActivedPartEnd", ET_Hook, Param_Cell, Param_Cell);
@@ -62,13 +62,12 @@ void Forward_OnGetPart_Post(int client, int partIndex)
     Call_Finish();
 }
 
-public Action Forward_OnSlotClear(int client, int partIndex, bool gotoNextRound)
+public Action Forward_OnSlotClear(int client, int partIndex)
 {
     Action action;
     Call_StartForward(OnSlotClear);
     Call_PushCell(client);
     Call_PushCell(partIndex);
-    Call_PushCell(gotoNextRound);
     Call_Finish(action);
 
     return action;

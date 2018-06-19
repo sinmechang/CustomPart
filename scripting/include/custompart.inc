@@ -692,7 +692,7 @@ forward void CP_OnGetPart_Post(int client, int partIndex);
 *
 *
 */
-forward Action CP_OnSlotClear(int client, int partIndex, bool gotoNextRound);
+forward Action CP_OnSlotClear(int client, int partIndex);
 
 /*
 *
