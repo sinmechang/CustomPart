@@ -125,7 +125,7 @@ public void OnPluginStart()
 }
 
 public Action OnRoundStart(Handle event, const char[] name, bool dont)
-{
+{ // FIXME: 라운드 종료 후 파츠 흭득 시 다음 라운드가 되어서 사용이 가능함.
 
     /*
     int ent = -1;
