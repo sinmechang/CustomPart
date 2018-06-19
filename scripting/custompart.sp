@@ -582,7 +582,7 @@ public Action OnPlayerSpawn(Handle event, const char[] name, bool dont)
             Action action;
             int remainCount = 0;
             bool[] gotoNextRound = new bool[MaxPartSlot[client]]
-            int temp, tempClient = client, tempPart;
+            int temp, tempPart, tempClient = client;
             bool tempGoToNextRound = false;
             int[] maxSlot = new int[MaxPartSlot[client]]
 
