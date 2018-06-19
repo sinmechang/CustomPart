@@ -44,7 +44,7 @@ enum PartValueType
 {
 	Part_PartIndex,
 	Part_Flags,
-	Part_Name,
+	Part_KeyValues,
 	Part_Duration,
 	Part_DurationMax,
 	Part_Active,
@@ -101,7 +101,6 @@ methodmap CPPart < ArrayList {
 		}
 
 		array.Set(view_as<int>(Part_PartIndex), partIndex);
-		array.SetString(view_as<int>(Part_Name), "");
 		return array;
 	}
 
@@ -175,16 +174,6 @@ methodmap CPPart < ArrayList {
 		{
 			this.SetValue(Part_Active, enable);
 		}
-	}
-
-	public void GetName(char[] name, const int len)
-	{
-		this.GetString(view_as<int>(Part_Name), name, len);
-	}
-
-	public void SetName(const char[] source)
-	{
-		this.SetString(view_as<int>(Part_Name), source);
 	}
 /*
 	public Action TriggerOnGet(int client, CPPartProp partprop = null)
