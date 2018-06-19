@@ -170,6 +170,136 @@ int SpawnCustomPart(PartRank partRank, float position[3], float velocity[3], boo
     return -1;
 }
 
+public Action FakePropTransmit(int entity, int client)
+{
+	if(IsCorrectTeam(client))
+		return Plugin_Handled;
+
+	return Plugin_Continue;
+}
+
+public Action OnPickup(Handle timer, int entRef) // Copied from FF2
+{
+    int entity = EntRefToEntIndex(entRef);
+    if(!IsValidEntity(entity))
+        return Plugin_Handled;
+
+    int client = IsEntityStuck(entity);
+    if(IsValidClient(client))
+    {
+        Action action;
+        int tempClient = client;
+        int tempEntity = entity;
+        int tempPart;
+
+        if(PartGetCoolTime[client] > GetGameTime())
+        {
+            IgnoreAndKickIt(client, entity);
+            return Plugin_Continue;
+        }
+
+        action = Forward_OnTouchedPartProp(tempClient, tempEntity);
+        if(action == Plugin_Handled || action == Plugin_Stop)
+        {
+            IgnoreAndKickIt(client, entity);
+            return Plugin_Continue;
+        }
+        else if(action == Plugin_Changed)
+        {
+            client = tempClient;
+            entity = tempEntity;
+        }
+        Forward_OnTouchedPartProp_Post(client, entity);
+
+        PartRank rank = view_as<PartRank>(GetPartPropInfo(entity, Info_Rank));
+        int part;
+        int slot;
+
+        if(IsCorrectTeam(client))
+        {
+            part = GetPartPropInfo(entity, Info_CustomIndex);
+            if(!PartKV.IsValidPart(part))
+                part = PartKV.RandomPart(client, rank);
+
+            slot = FindActiveSlot(client);
+            tempPart = part;
+            // Debug("확정된 파츠: %i, slot = %i, rank = %i", part, slot, view_as<int>(rank));
+
+            if(part <= 0 || slot < 0) // 유효한 파츠이나 파츠 슬릇 체크
+            {
+                Debug("OnPickup: part = %d slot = %d", part, slot);
+                IgnoreAndKickIt(client, entity);
+                return Plugin_Continue;
+            }
+
+            // Debug("OnPickup: part = %d slot = %d", part, slot);
+            action = Forward_OnGetPart(tempClient, tempEntity, tempPart);
+            if(action == Plugin_Handled || action == Plugin_Stop)
+            {
+                IgnoreAndKickIt(client, entity);
+                return Plugin_Continue;
+            }
+            else if(action == Plugin_Changed)
+            {
+                client = tempClient;
+                entity = tempEntity;
+                part = tempPart;
+            }
+            Forward_OnGetPart_Post(client, tempPart);
+
+            SetClientPart(client, slot, part);
+            ViewPart(client, part);
+            PartGetCoolTime[client] = GetGameTime() + GetConVarFloat(cvarPropCooltime);
+            PrintCenterText(client, "파츠를 흭득하셨습니다!");
+
+            if(PartKV.IsPartActive(part))
+            {
+                PartMaxChargeDamage[client] += PartKV.GetPartMaxChargeDamage(part);
+            }
+
+            AcceptEntityInput(entity, "kill");
+            return Plugin_Handled;
+        }
+        else
+        {
+            KickEntity(client, entity);
+        }
+    }
+
+    CreateTimer(0.05, OnPickup, EntIndexToEntRef(entity));
+    return Plugin_Continue;
+}
+
+void IgnoreAndKickIt(int client, int prop)
+{
+    KickEntity(client, prop);
+    CreateTimer(0.05, OnPickup, EntIndexToEntRef(prop));
+}
+
+public Action FakePickup(Handle timer, int entRef)
+{
+	int entity = EntRefToEntIndex(entRef);
+	if(!IsValidEntity(entity))
+		return Plugin_Handled;
+
+	int client = IsEntityStuck(entity);
+	if(IsValidClient(client))
+	{
+		if(!IsCorrectTeam(client))
+		{
+			KickEntity(client, entity);
+		}
+		else
+		{
+			AcceptEntityInput(entity, "kill");
+			return Plugin_Handled;
+		}
+	}
+
+	CreateTimer(0.05, FakePickup, EntIndexToEntRef(entity));
+	return Plugin_Continue;
+}
+
 /*
 bool CanUsePartBoss(int partIndex)
 {
