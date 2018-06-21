@@ -455,7 +455,7 @@ public void OnMapStart()
     CheckPartConfigFile();
     CreateTimer(0.2, PrecacheTimer);
 
-    for(int client=1; client<=MaxClients; client++)
+    for(int client = 1; client <= MaxClients; client++)
     {
         CPFlags[client] = 0;
 
@@ -474,7 +474,7 @@ void ChangeChatCommand()
 	char cvarV[100];
 	GetConVarString(cvarChatCommand, cvarV, sizeof(cvarV));
 
-	for (int i=0; i<ExplodeString(cvarV, ",", g_strChatCommand, sizeof(g_strChatCommand), sizeof(g_strChatCommand[])); i++)
+	for (int i = 0; i < ExplodeString(cvarV, ",", g_strChatCommand, sizeof(g_strChatCommand), sizeof(g_strChatCommand[])); i++)
 	{
 		LogMessage("[CP] Added chat command: %s", g_strChatCommand[i]);
 		g_iChatCommand++;
@@ -570,7 +570,7 @@ public void OnTakeDamagePost(int client, int attacker, int inflictor, float dama
             if(damagetype & DMG_CRIT)
                 realDamage *= 3.0;
 
-            AddPartCharge(attacker, realDamage*100.0/PartMaxChargeDamage[attacker]);
+            AddPartCharge(attacker, realDamage * 100.0 / PartMaxChargeDamage[attacker]);
         }
     }
 }
