@@ -69,6 +69,17 @@ methodmap CPPart < ArrayList {
 		}
 	}
 
+    property KeyValues KeyValue {
+		public get()
+		{
+			return this.GetValue(Part_KeyValues);
+		}
+		public set(Part_KeyValues kv)
+		{
+			this.SetValue(Part_KeyValues, kv);
+		}
+	}
+
 	property float Duration {
 		public get()
 		{
