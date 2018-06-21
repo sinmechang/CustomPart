@@ -16,7 +16,8 @@ enum PartRank
 	Rank_Rare,
 	Rank_Hero,
 	Rank_Legend,
-	Rank_Another
+	Rank_Another,
+	Rank_Rainbow
 };
 
 enum PartInfo
