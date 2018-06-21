@@ -69,12 +69,12 @@ methodmap CPPart < ArrayList {
 		}
 	}
 
-    property KeyValues KeyValue {
+    property CPConfigKeyValues KeyValue {
 		public get()
 		{
 			return this.GetValue(Part_KeyValues);
 		}
-		public set(Part_KeyValues kv)
+		public set(CPConfigKeyValues kv)
 		{
 			this.SetValue(Part_KeyValues, kv);
 		}

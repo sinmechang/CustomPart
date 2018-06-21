@@ -605,16 +605,6 @@ public Action OnPlayerDeath(Handle event, const char[] name, bool dont)
     return Plugin_Continue;
 }
 
-void AddPartCharge(int client, float charge)
-{
-    PartCharge[client] += charge;
-
-    if(PartCharge[client] > 100.0)
-        PartCharge[client] = 100.0;
-    else if(PartCharge[client] < 0.0)
-        PartCharge[client] = 0.0;
-}
-
 bool IsPartActived(int client, int partIndex)
 {
     return ActivedPartSlotArray[client].FindValue(partIndex) != -1;

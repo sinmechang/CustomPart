@@ -245,6 +245,16 @@ methodmap CPClient < ArrayList {
 		}
 	}
 
+    public void AddPartCharge(float charge)
+    {
+        this.Charge += charge;
+
+        if(this.Charge > 100.0)
+            this.Charge = 100.0;
+        else if(this.Charge < 0.0)
+            this.Charge = 0.0;
+    }
+
 	public bool IsValidSlot(int client, int slot)
 	{
 		if(this.MaxSlotCount > slot
