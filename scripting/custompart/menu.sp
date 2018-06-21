@@ -40,7 +40,7 @@ public Action GivePart(int client, int args)
                 if(IsValidSlot(targets[target], slot))
                 {
                     SetClientPart(targets[target], slot, part);
-                    PartMaxChargeDamage[targets[target]] += PartKV.GetPartMaxChargeDamage(part);
+                    g_hClientInfo[targets[target]].MaxChargeDamage += PartKV.GetPartMaxChargeDamage(part);
                     Forward_OnGetPart_Post(targets[target], part);
                     CPrintToChatAll("{yellow}[CP]{default} %N님이 %N에게 %i가 추가됨.", client, targets[target], part);
                 }
@@ -53,7 +53,7 @@ public Action GivePart(int client, int args)
         if(IsValidSlot(targets[0], slot))
         {
             SetClientPart(targets[0], slot, part);
-            PartMaxChargeDamage[targets[0]] += PartKV.GetPartMaxChargeDamage(part);
+            g_hClientInfo[targets[0]].MaxChargeDamage += PartKV.GetPartMaxChargeDamage(part);
             Forward_OnGetPart_Post(targets[0], part);
             CPrintToChatAll("{yellow}[CP]{default} %N님이 %N에게 %i가 추가됨.", client, targets[0], part);
         }
@@ -258,7 +258,7 @@ void ViewSlotPart(int client, int slot=0)
         char tempItem[200];
         Menu menu = new Menu(OnSelectedSlotItem);
         // menu.SetTitle("현재 파츠: (슬릇: %i / %i)", slot+1, MaxPartSlot[client]);
-        Format(item, sizeof(item), "현재 파츠: (슬릇: %i / %i)", slot+1, MaxPartSlot[client]);
+        Format(item, sizeof(item), "현재 파츠: (슬릇: %i / %i)", slot+1, g_hClientInfo[client].MaxSlotCount);
 
         PartKV.GetPartString(part, "name", tempItem, sizeof(tempItem), client);
         Format(item, sizeof(item), "%s\n\n이름: %s", item, tempItem);
@@ -291,7 +291,7 @@ void ViewSlotPart(int client, int slot=0)
 
         itemFlags = 0;
 
-        if(slot + 1 < MaxPartSlot[client])
+        if(slot + 1 < g_hClientInfo[client].MaxSlotCount)
             Format(item, sizeof(item), "다음 슬릇으로");
         else
         {

@@ -192,7 +192,7 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
         int tempEntity = entity;
         int tempPart;
 
-        if(PartGetCoolTime[client] > GetGameTime())
+        if(g_hClientInfo[client].GetCoolTime > GetGameTime())
         {
             IgnoreAndKickIt(client, entity);
             return Plugin_Continue;
@@ -249,12 +249,12 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
 
             SetClientPart(client, slot, part);
             ViewPart(client, part);
-            PartGetCoolTime[client] = GetGameTime() + GetConVarFloat(cvarPropCooltime);
+            g_hClientInfo[client].GetCoolTime = GetGameTime() + GetConVarFloat(cvarPropCooltime);
             PrintCenterText(client, "파츠를 흭득하셨습니다!");
 
             if(PartKV.IsPartActive(part))
             {
-                PartMaxChargeDamage[client] += PartKV.GetPartMaxChargeDamage(part);
+                g_hClientInfo[client].MaxChargeDamage += PartKV.GetPartMaxChargeDamage(part);
             }
 
             AcceptEntityInput(entity, "kill");

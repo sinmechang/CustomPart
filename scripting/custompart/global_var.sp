@@ -26,17 +26,17 @@ Handle cvarDebug;
 
 int CPFlags[MAXPLAYERS+1];
 
-int MaxPartSlot[MAXPLAYERS+1];
+// int MaxPartSlot[MAXPLAYERS+1];
 int LastSelectedSlot[MAXPLAYERS+1];
 PartRank SelectedBookRank[MAXPLAYERS+1];
 
 ArrayList ActivedPartSlotArray[MAXPLAYERS+1];
 ArrayList ActivedDurationArray[MAXPLAYERS+1];
 
-float PartCharge[MAXPLAYERS+1];
-float PartMaxChargeDamage[MAXPLAYERS+1];
-float PartCooldown[MAXPLAYERS+1];
-float PartGetCoolTime[MAXPLAYERS+1];
+// float PartCharge[MAXPLAYERS+1];
+// float PartMaxChargeDamage[MAXPLAYERS+1];
+// float PartCooldown[MAXPLAYERS+1];
+// float PartGetCoolTime[MAXPLAYERS+1];
 
 CPClient g_hClientInfo[MAXPLAYERS+1];
 
