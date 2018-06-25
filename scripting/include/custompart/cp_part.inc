@@ -7,6 +7,7 @@
 enum PartValueType
 {
 	Part_PartIndex,
+	Part_ParentIndex,
 	Part_Flags,
 	Part_KeyValues,
 	Part_Duration,
@@ -55,6 +56,17 @@ methodmap CPPart < ArrayList {
 		public set(int partIndex)
 		{
 			this.SetValue(Part_PartIndex, partIndex);
+		}
+	}
+
+	property int Parent {
+		public get()
+		{
+			return this.GetValue(Part_ParentIndex);
+		}
+		public set(int index)
+		{
+			this.SetValue(Part_ParentIndex, index);
 		}
 	}
 
