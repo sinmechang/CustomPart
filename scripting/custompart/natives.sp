@@ -14,6 +14,7 @@ void Init_ConfigNatives()
     CreateNative("CPConfigKeyValues.GetActivePartDuration", Native_CPC_GetActivePartDuration);
     CreateNative("CPConfigKeyValues.GetActivePartCooldown", Native_CPC_GetActivePartCooldown);
     CreateNative("CPConfigKeyValues.GetPartMaxChargeDamage", Native_CPC_GetPartMaxChargeDamage);
+    CreateNative("CPConfigKeyValues.GetPartDefaultFlag", Native_CPC_GetPartDefaultFlag);
     CreateNative("CPConfigKeyValues.IsCanUseWeaponPart", Native_CPC_IsCanUseWeaponPart);
     // CreateNative("CPConfigKeyValues.GetPartString", Native_CPC_GetPartString);
 }
@@ -51,14 +52,25 @@ public int Native_CPC_LoadPart(Handle plugin, int numParams)
     CPConfigKeyValues thisKv = GetNativeCell(1);
     int partIndex = GetNativeCell(2);
 
-    if(thisKv.JumpToKeySymbol(thisKv.GetPartSymbol(partIndex)))
+    CPConfigKeyValues copied = view_as<CPConfigKeyValues>(new KeyValues(""));
+
+    if(thisKv.JumpToPart(partIndex))
     {
+        copied.Import(thisKv);
+
+        char tempKeyName[30];
+        Format(tempKeyName, sizeof(tempKeyName), "part%i", partIndex);
+        copied.SetSectionName(tempKeyName);
+
         CPPart tempPart = new CPPart(partIndex);
         if(thisKv.IsPartActive(partIndex))
         {
             tempPart.Active = true;
             tempPart.DurationMax = thisKv.GetActivePartDuration(partIndex);
         }
+
+        tempPart.Flags = thisKv.GetPartDefaultFlag(partIndex);
+        tempPart.KeyValue = copied;
 
         thisKv.Rewind();
         return view_as<int>(tempPart);
@@ -281,6 +293,19 @@ public int Native_CPC_GetPartMaxChargeDamage(Handle plugin, int numParams)
         maxChargeDamage = thisKv.GetFloat("active_max_charge", 100.0);
 
     return view_as<int>(maxChargeDamage);
+}
+
+public int Native_CPC_GetPartDefaultFlag(Handle plugin, int numParams)
+{
+    CPConfigKeyValues thisKv = GetNativeCell(1);
+    int partIndex = GetNativeCell(2);
+
+    int flags = 0;
+
+    if(thisKv.JumpToPart(partIndex))
+        flags = thisKv.GetNum("default_flag", 0);
+
+    return flags;
 }
 
 public int Native_CPC_IsCanUseWeaponPart(Handle plugin, int numParams)

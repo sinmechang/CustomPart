@@ -61,6 +61,8 @@ methodmap CPConfigKeyValues < KeyValues {
 
 	public native float GetPartMaxChargeDamage(const int partIndex);
 
+	public native int GetPartDefaultFlag(const int partIndex);
+
 	public native bool IsCanUseWeaponPart(const int client, const int partIndex);
 
 	public void GetValidPartArray(const PartRank rank, int[] parts, const int size)
