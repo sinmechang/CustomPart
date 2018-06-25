@@ -125,6 +125,21 @@ methodmap CPClientPartSlot < ArrayList {
 		}
 		return -1;
 	}
+
+	public bool IsPartActived(int partIndex)
+	{
+		CPPart value;
+
+		for(int loop = 0; loop < this.Length; loop++)
+		{
+			value = this.GetPart(loop);
+
+			if(value != null && value.Index == partIndex)
+				return true;
+		}
+
+		return false;
+	}
 }
 
 ///

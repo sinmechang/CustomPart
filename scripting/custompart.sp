@@ -594,11 +594,6 @@ public Action OnPlayerDeath(Handle event, const char[] name, bool dont)
     return Plugin_Continue;
 }
 
-bool IsPartActived(int client, int partIndex)
-{
-    return ActivedPartSlotArray[client].FindValue(partIndex) != -1;
-}
-
 bool ReplacePartSlot(int client, int beforePartIndex, int afterPartIndex)
 {
     int slot = ActivedPartSlotArray[client].FindValue(beforePartIndex);
