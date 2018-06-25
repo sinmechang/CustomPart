@@ -48,7 +48,7 @@ methodmap CPClientPartSlot < ArrayList {
 		for(int slotLoop = 0; slotLoop < this.Length; slotLoop++)
 		{
 			insideArray = this.Get(slotLoop);
-			delete insideArray;
+			insideArray.KillSelf(true);
 		}
 
 		delete this;
@@ -95,6 +95,21 @@ methodmap CPClientPartSlot < ArrayList {
 			tempPart.KillSelf();
 
 		this.Set(slot, part);
+	}
+
+	public void RefrashSlot(bool force = false)
+	{
+		CPPart part;
+
+		for(int loop = 0; loop < array.Length; loop++)
+		{
+			part = this.GetPart(loop);
+
+			if(part != null)
+			{
+				part.KillSelf();
+			}
+		}
 	}
 }
 

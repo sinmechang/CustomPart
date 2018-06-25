@@ -41,10 +41,19 @@ methodmap CPPart < ArrayList {
 		this.Set(view_as<int>(valueType), value);
 	}
 
-	public CPPart KillSelf()
+	public CPPart KillSelf(bool force = false) // 강제로 제거는 킬 이벤트를 생략함.
 	{
-		delete this;
+		if(!force)
+		{
+			Forward_OnSlotClear(this.Parent, this.Index);
 
+			if(part.Duration > 0.0)
+			{
+				Forward_OnActivedPartEnd(client, partIndex);
+			}
+		}
+
+		delete this;
 		return null;
 	}
 
