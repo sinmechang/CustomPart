@@ -116,9 +116,9 @@ methodmap CPClientPartSlot < ArrayList {
 	{
 		CPPart value;
 
-		for(int loop = 0;  loop < this.Length; loop++)
+		for(int loop = 0; loop < this.Length; loop++)
 		{
-			value = this.Get(loop);
+			value = this.GetPart(loop);
 
 			if(value != null)
 				return i;
