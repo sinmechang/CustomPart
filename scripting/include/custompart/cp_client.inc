@@ -126,7 +126,7 @@ methodmap CPClientPartSlot < ArrayList {
 		return -1;
 	}
 
-	public bool IsPartActived(int partIndex)
+	public int FindPart(int partIndex)
 	{
 		CPPart value;
 
@@ -135,10 +135,10 @@ methodmap CPClientPartSlot < ArrayList {
 			value = this.GetPart(loop);
 
 			if(value != null && value.Index == partIndex)
-				return true;
+				return loop;
 		}
 
-		return false;
+		return -1;
 	}
 }
 
