@@ -299,7 +299,7 @@ methodmap CPClient < ArrayList {
             this.Charge = 0.0;
     }
 
-	public bool IsValidSlot(int client, int slot)
+	public bool IsValidSlot(int slot)
 	{
 		if(this.MaxSlotCount > slot
 			&& ((this.PartSlot != null) && (this.PartSlot).Length > slot)
