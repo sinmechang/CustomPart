@@ -611,19 +611,6 @@ bool ReplacePartSlot(int client, int beforePartIndex, int afterPartIndex)
     return false;
 }
 
-int FindActiveSlot(int client)
-{
-    // RefrashPartSlotArray(client, true, true);
-    for(int i = 0;  i < g_hClientInfo[client].MaxSlotCount; i++)
-    {
-        int value = ActivedPartSlotArray[client].Get(i);
-        // Debug("[%i] %d", i, value);
-        if(value <= 0 || !PartKV.IsValidPart(value))
-            return i;
-    }
-    return -1;
-}
-
 int GetClientPart(int client, int slot)
 {
     if(IsValidSlot(client, slot))
@@ -865,7 +852,8 @@ public Native_ReplacePartSlot(Handle plugin, int numParams)
 
 public Native_FindActiveSlot(Handle plugin, int numParams)
 {
-    return FindActiveSlot(GetNativeCell(1));
+    CPClientPartSlot clientPartslot = g_hClientInfo[GetNativeCell(1)].PartSlot;
+    return clientPartslot.FindActiveSlot();
 }
 
 public Native_NoticePart(Handle plugin, int numParams)
