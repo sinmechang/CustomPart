@@ -36,7 +36,7 @@ public Action GivePart(int client, int args)
         {
             if(!IsClientSourceTV(targets[target]) && !IsClientReplay(targets[target]))
             {
-                int slot = FindActiveSlot(targets[target]);
+                int slot = (g_hClientInfo[targets[target]].PartSlot).FindActiveSlot();
                 if(IsValidSlot(targets[target], slot))
                 {
                     SetClientPart(targets[target], slot, part);
@@ -49,7 +49,7 @@ public Action GivePart(int client, int args)
     }
     else
     {
-        int slot = FindActiveSlot(targets[0]);
+        int slot = (g_hClientInfo[targets[0]].PartSlot).FindActiveSlot();
         if(IsValidSlot(targets[0], slot))
         {
             SetClientPart(targets[0], slot, part);

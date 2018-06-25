@@ -221,7 +221,7 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
             if(!PartKV.IsValidPart(part))
                 part = PartKV.RandomPart(client, rank);
 
-            slot = FindActiveSlot(client);
+            slot = (g_hClientInfo[client].PartSlot).FindActiveSlot();
             tempPart = part;
             // Debug("확정된 파츠: %i, slot = %i, rank = %i", part, slot, view_as<int>(rank));
 
