@@ -169,17 +169,6 @@ public Action OnRoundEnd(Handle event, const char[] name, bool dont)
 
         if(ActivedPartSlotArray[client].Length > 0) // TODO: 동일한 역할들을 묶어놓기.
         {
-            RefrashPartSlotArray(client, true, true);
-
-            int temp, tempPart, tempClient = client;
-
-            for(int target = 0; target < g_hClientInfo[client].MaxSlotCount; target++)
-            {
-                temp = ActivedPartSlotArray[client].Get(target);
-
-                if(!PartKV.IsValidPart(temp)) continue;
-
-                tempPart = temp;
                 Forward_OnSlotClear(tempClient, tempPart);
 
                 float duration = GetClientActiveSlotDuration(client, target);

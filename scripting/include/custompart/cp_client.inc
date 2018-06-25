@@ -111,6 +111,20 @@ methodmap CPClientPartSlot < ArrayList {
 			}
 		}
 	}
+
+	public int FindActiveSlot() // TODO: bool startAtBack = false
+	{
+		CPPart value;
+
+		for(int loop = 0;  loop < this.Length; loop++)
+		{
+			value = this.Get(loop);
+
+			if(value != null)
+				return i;
+		}
+		return -1;
+	}
 }
 
 ///
