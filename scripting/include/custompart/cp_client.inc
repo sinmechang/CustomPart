@@ -41,19 +41,6 @@ methodmap CPClientPartSlot < ArrayList {
 		this.Set(view_as<int>(valueType), value);
 	}
 */
-	public CPClientPartSlot KillSelf()
-	{
-		ArrayList insideArray;
-
-		for(int slotLoop = 0; slotLoop < this.Length; slotLoop++)
-		{
-			insideArray = this.Get(slotLoop);
-			insideArray.KillSelf(true);
-		}
-
-		delete this;
-		return null;
-	}
 
 	public void ResizeSlot(int size)
 	{
@@ -101,7 +88,7 @@ methodmap CPClientPartSlot < ArrayList {
 	{
 		CPPart part;
 
-		for(int loop = 0; loop < array.Length; loop++)
+		for(int loop = 0; loop < this.Length; loop++)
 		{
 			part = this.GetPart(loop);
 
@@ -121,7 +108,7 @@ methodmap CPClientPartSlot < ArrayList {
 			value = this.GetPart(loop);
 
 			if(value != null)
-				return i;
+				return loop;
 		}
 		return -1;
 	}
@@ -140,6 +127,34 @@ methodmap CPClientPartSlot < ArrayList {
 
 		return -1;
 	}
+
+	public CPClientPartSlot KillSelf()
+	{
+		CPPart insideArray;
+
+		for(int slotLoop = 0; slotLoop < this.Length; slotLoop++)
+		{
+			insideArray = this.GetPart(slotLoop);
+			if(insideArray != null)
+				insideArray.KillSelf(true);
+		}
+
+		delete this;
+		return null;
+	}
+
+	/*
+	public bool ReplacePartSlot(int beforePartIndex, int afterPartIndex)
+	{
+		if(this.FindPart(beforePartIndex) != -1)
+		{
+			this.SetPart(slot, PartKV.LoadPart(afterPartIndex));
+			return true;
+		}
+
+		return false;
+	}
+	*/
 }
 
 ///
@@ -307,5 +322,23 @@ methodmap CPClient < ArrayList {
 			return true;
 
 		return false;
+	}
+
+	public bool IsHaveActivePart()
+	{
+		CPPart part;
+
+	    for(int count = 0; count < this.MaxSlotCount; count++)
+	    {
+	        part = (this.PartSlot).GetPart(count);
+	        if(part.Active)
+	            return true;
+	    }
+	    return false;
+	}
+
+	public float GetTotalCooldown()
+	{
+
 	}
 }

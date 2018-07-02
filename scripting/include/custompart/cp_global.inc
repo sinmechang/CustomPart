@@ -49,9 +49,9 @@ methodmap CPConfigKeyValues < KeyValues {
 
 	public native int GetValidPartCount(const PartRank rank = Rank_None);
 
-	public native int RandomPart(const int client, PartRank rank);
+	public native int RandomPartIndex(const int client, PartRank rank);
 
-	public native bool IsPartActive(const int partIndex);
+	public native bool IsPartActive(const int partIndex = 0);
 
 	public native PartRank GetPartRank(const int partIndex);
 

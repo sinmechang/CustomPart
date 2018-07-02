@@ -8,7 +8,7 @@ void Init_ConfigNatives()
     CreateNative("CPConfigKeyValues.CanUsePartClass", Native_CPC_CanUsePartClass);
     CreateNative("CPConfigKeyValues.GetValidPartCount", Native_CPC_GetValidPartCount);
     // CreateNative("CPConfigKeyValues.GetValidPartArray", Native_CPC_GetValidPartArray);
-    CreateNative("CPConfigKeyValues.RandomPart", Native_CPC_RandomPart);
+    CreateNative("CPConfigKeyValues.RandomPartIndex", Native_CPC_RandomPartIndex);
     CreateNative("CPConfigKeyValues.IsPartActive", Native_CPC_IsPartActive);
     CreateNative("CPConfigKeyValues.GetPartRank", Native_CPC_GetPartRank);
     CreateNative("CPConfigKeyValues.GetActivePartDuration", Native_CPC_GetActivePartDuration);
@@ -163,7 +163,7 @@ public int Native_CPC_GetValidPartCount(Handle plugin, int numParams)
 }
 
 
-public int Native_CPC_RandomPart(Handle plugin, int numParams)
+public int Native_CPC_RandomPartIndex(Handle plugin, int numParams)
 {
     CPConfigKeyValues thisKv = GetNativeCell(1);
     int client = GetNativeCell(2);

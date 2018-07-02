@@ -44,7 +44,7 @@ enum PartInfo
 * @return 0은 그 슬롯이 비어있다는 것, 그 외에는 파츠 값.
 *
 */
-native int CP_GetClientPart(int client, int slot);
+native CPPart CP_GetClientPart(int client, int slot);
 
 /*
 * 해당 슬롯에 파츠 값을 부여 함.
@@ -56,7 +56,7 @@ native int CP_GetClientPart(int client, int slot);
 *
 * 만약 slot이 플레이어의 최대 슬롯보다 클 경우에는 적용되지 않음.
 */
-native void CP_SetClientPart(int client, int slot, int value);
+native void CP_SetClientPart(int client, int slot, CPPart value);
 
 /*
 * 해당 클라이언트가 해당 파츠를 가지고 있는지 확인함.

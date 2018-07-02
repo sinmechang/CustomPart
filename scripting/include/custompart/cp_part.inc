@@ -17,10 +17,19 @@ enum PartValueType
 	PartValue_Last
 };
 
+methodmap CPPartKeyValues < KeyValues {
+	/*
+	public CPPartKeyValues(int partIndex)
+	{
+
+	}
+	*/
+}
+
 methodmap CPPart < ArrayList {
 	public CPPart(int partIndex)
 	{
-		CPPart array = view_as<CPPart>(new ArrayList(64, PartValue_Last));
+		CPPart array = view_as<CPPart>(new ArrayList(64, view_as<int>(PartValue_Last)));
 
 		for(int loop = 0; loop < view_as<int>(PartValue_Last); loop++)
 		{
@@ -39,22 +48,6 @@ methodmap CPPart < ArrayList {
 	public void SetValue(PartValueType valueType, any value)
 	{
 		this.Set(view_as<int>(valueType), value);
-	}
-
-	public CPPart KillSelf(bool force = false) // 강제로 제거는 킬 이벤트를 생략함.
-	{
-		if(!force)
-		{
-			Forward_OnSlotClear(this.Parent, this.Index);
-
-			if(part.Duration > 0.0)
-			{
-				Forward_OnActivedPartEnd(client, partIndex);
-			}
-		}
-
-		delete this;
-		return null;
 	}
 
 	property int Index {
@@ -132,6 +125,22 @@ methodmap CPPart < ArrayList {
 		{
 			this.SetValue(Part_Active, enable);
 		}
+	}
+
+	public CPPart KillSelf(bool force = false) // 강제로 제거는 킬 이벤트를 생략함.
+	{
+		if(!force)
+		{
+			Forward_OnSlotClear(this.Parent, this.Index);
+
+			if(this.Duration > 0.0)
+			{
+				Forward_OnActivedPartEnd(this.Parent, this.Index);
+			}
+		}
+
+		delete this;
+		return null;
 	}
 /*
 	public Action TriggerOnGet(int client, CPPartProp partprop = null)

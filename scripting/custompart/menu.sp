@@ -30,16 +30,16 @@ public Action GivePart(int client, int args)
 
     if(!PartKV.IsValidPart(part)) return Plugin_Handled;
 
-    if(matches>1)
+    if(matches > 1)
     {
         for(int target; target<matches; target++)
         {
             if(!IsClientSourceTV(targets[target]) && !IsClientReplay(targets[target]))
             {
                 int slot = (g_hClientInfo[targets[target]].PartSlot).FindActiveSlot();
-                if(IsValidSlot(targets[target], slot))
+                if(g_hClientInfo[targets[target]].IsValidSlot(slot))
                 {
-                    SetClientPart(targets[target], slot, part);
+                    SetClientPart(targets[target], slot, PartKV.LoadPart(part));
                     g_hClientInfo[targets[target]].MaxChargeDamage += PartKV.GetPartMaxChargeDamage(part);
                     Forward_OnGetPart_Post(targets[target], part);
                     CPrintToChatAll("{yellow}[CP]{default} %N님이 %N에게 %i가 추가됨.", client, targets[target], part);
@@ -50,7 +50,7 @@ public Action GivePart(int client, int args)
     else
     {
         int slot = (g_hClientInfo[targets[0]].PartSlot).FindActiveSlot();
-        if(IsValidSlot(targets[0], slot))
+        if(g_hClientInfo[targets[0]].IsValidSlot(slot))
         {
             SetClientPart(targets[0], slot, part);
             g_hClientInfo[targets[0]].MaxChargeDamage += PartKV.GetPartMaxChargeDamage(part);
@@ -245,11 +245,11 @@ void ViewPart(int client, int partIndex)
     }
 }
 
-void ViewSlotPart(int client, int slot=0)
+void ViewSlotPart(int client, int slot = 0)
 {
-    if(IsValidSlot(client, slot))
+    if(g_hClientInfo[client].IsValidSlot(slot))
     {
-        int part;
+        CPPart part;
 
         if(!PartKV.IsValidPart((part = GetClientPart(client, slot))))
             part = INVALID_PARTID;
@@ -317,7 +317,6 @@ public int OnSelectedSlotItem(Menu menu, MenuAction action, int client, int item
       }
       case MenuAction_Select:
       {
-          RefrashPartSlotArray(client, true, true);
           switch(item)
           {
               case 0:

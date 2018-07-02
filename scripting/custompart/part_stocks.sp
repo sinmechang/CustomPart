@@ -190,7 +190,7 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
         Action action;
         int tempClient = client;
         int tempEntity = entity;
-        int tempPart;
+        CPPart tempPart;
 
         if(g_hClientInfo[client].GetCoolTime > GetGameTime())
         {
@@ -212,22 +212,22 @@ public Action OnPickup(Handle timer, int entRef) // Copied from FF2
         Forward_OnTouchedPartProp_Post(client, entity);
 
         PartRank rank = view_as<PartRank>(GetPartPropInfo(entity, Info_Rank));
-        int part;
+        CPPart part = null;
         int slot;
 
         if(IsCorrectTeam(client))
         {
-            part = GetPartPropInfo(entity, Info_CustomIndex);
-            if(!PartKV.IsValidPart(part))
-                part = PartKV.RandomPart(client, rank);
+            // part = GetPartPropInfo(entity, Info_CustomIndex);
+            if(part == null)
+                part = PartKV.LoadPart(PartKV.RandomPartIndex(client, rank));
 
             slot = (g_hClientInfo[client].PartSlot).FindActiveSlot();
             tempPart = part;
             // Debug("확정된 파츠: %i, slot = %i, rank = %i", part, slot, view_as<int>(rank));
 
-            if(part <= 0 || slot < 0) // 유효한 파츠이나 파츠 슬릇 체크
+            if(part == null || slot < 0) // 유효한 파츠이나 파츠 슬릇 체크
             {
-                Debug("OnPickup: part = %d slot = %d", part, slot);
+                Debug("OnPickup: part = %d slot = %d", part.Index, slot);
                 IgnoreAndKickIt(client, entity);
                 return Plugin_Continue;
             }
